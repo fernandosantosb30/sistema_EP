@@ -1,0 +1,20 @@
+{% extends 'providers/base.html' %}
+
+{% block content %}
+<div class="row justify-content-center g-4 mt-5">
+    <div class="col-md-5">
+        <a href="{% url 'cadastro' %}" class="card-menu bg-cadastro shadow">
+            <div class="text-uppercase fw-bold mb-4">Provedores</div>
+            <i class="bi bi-wifi icon-large"></i>
+            <div class="fs-4">Cadastro Fornecedores</div>
+        </a>
+    </div>
+    <div class="col-md-5">
+        <a href="{% url 'consulta' %}" class="card-menu bg-consulta shadow text-dark">
+            <div class="text-uppercase fw-bold mb-4">Consulta de Provedor</div>
+            <i class="bi bi-globe icon-large"></i>
+            <div class="fs-4">Consulta Provedores</div>
+        </a>
+    </div>
+</div>
+{% endblock %}

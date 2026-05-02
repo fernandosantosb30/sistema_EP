@@ -1,0 +1,94 @@
+{% extends 'providers/base.html' %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    <!-- Botão Voltar Superior -->
+    <div class="mb-3">
+        <a href="{% url 'home' %}" class="btn btn-info text-white fw-bold shadow-sm" style="background-color: #17a2b8; border: none;">
+            Voltar
+        </a>
+    </div>
+
+    <!-- Container da Tabela -->
+    <div class="card shadow-sm border-0" style="background-color: #aeb47a;">
+        <div class="card-body p-0">
+            <!-- Barra de Filtros (Simulada) -->
+            <div class="d-flex justify-content-between align-items-center p-2 bg-secondary text-white bg-opacity-25">
+                <div class="d-flex align-items-center">
+                    <span class="me-2">Exibir</span>
+                    <select class="form-select form-select-sm d-inline-block w-auto bg-dark text-white border-0">
+                        <option>10</option>
+                    </select>
+                    <span class="ms-2">resultados por página</span>
+                </div>
+                <div class="d-flex align-items-center">
+                    <span class="me-2">Pesquisar</span>
+                    <input type="text" class="form-control form-control-sm bg-dark text-white border-0" placeholder="Buscar registros">
+                </div>
+            </div>
+
+            <!-- Tabela -->
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-secondary text-uppercase small" style="background-color: #939a64 !important; color: white;">
+                        <tr>
+                            <th width="120">Ações</th>
+                            <th>Código</th>
+                            <th>Nome</th>
+                            <th>Dt.Cadastro</th>
+                            <th>Ativo</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Botão de Adicionar Novo -->
+                                <tr style="background-color: rgba(0,0,0,0.05);">
+                                    <td>
+                                        <!-- Trocamos o '#' por '{% url 'novo_provedor' %}' -->
+                                        <a href="{% url 'novo_provedor' %}" class="btn btn-sm btn-primary py-0 px-2 shadow-sm">
+                                            <i class="bi bi-plus-lg"></i>
+                                        </a>
+                                    </td>
+                                    <td colspan="4"></td>
+                                </tr>
+
+                        {% for p in provedores %}
+                        <tr>
+                            <td>
+                                <div class="btn-group gap-1">
+                                    <button class="btn btn-sm btn-outline-success p-1 border-2" title="Visualizar"><i class="bi bi-eye"></i></button>
+                                    <a href="{% url 'editar_provedor' p.id %}" class="btn btn-sm btn-outline-info p-1 border-2 text-dark" title="Editar"><i class="bi bi-pencil-square"></i></a>
+                                    <button class="btn btn-sm btn-outline-danger p-1 border-2" title="Excluir"><i class="bi bi-trash"></i></button>
+                                </div>
+                            </td>
+                            <td>{{ p.codigo|default:"---" }}</td>
+                            <td class="text-uppercase">{{ p.nome }}</td>
+                            <td>{{ p.data_cadastro|date:"d/m/Y H:i:s" }}</td>
+                            <td>{{ p.ativo|yesno:"S,N" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center py-4">Nenhum registro encontrado.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Botão Voltar Inferior -->
+    <div class="mt-3">
+        <a href="{% url 'home' %}" class="btn btn-info text-white fw-bold shadow-sm" style="background-color: #17a2b8; border: none;">
+            Voltar
+        </a>
+    </div>
+</div>
+
+<!-- Estilo Adicional para Refinar as Cores -->
+<style>
+    body { background-color: #d1d596 !important; }
+    .table th { border-bottom: 2px solid #7a824b !important; }
+    .table td { border-bottom: 1px solid rgba(0,0,0,0.1); vertical-align: middle; }
+    .btn-outline-success:hover { background-color: #198754; color: white; }
+</style>
+{% endblock %}

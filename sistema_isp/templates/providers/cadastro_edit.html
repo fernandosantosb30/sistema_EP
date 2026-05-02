@@ -1,0 +1,208 @@
+{% extends 'providers/base.html' %}
+
+{% block content %}
+{% if messages %}
+    {% for message in messages %}
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    {% endfor %}
+{% endif %}
+<div class="container-fluid px-4 py-3">
+    <!-- Botão Voltar -->
+    <div class="mb-3">
+        <a href="{% url 'cadastro' %}" class="btn btn-info text-white fw-bold shadow-sm">Voltar</a>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+        
+        <!-- Bloco Identificação -->
+        <div class="card-custom mb-4 p-3 border rounded shadow-sm" style="background-color: rgba(255,255,255,0.05);">
+            <div class="header-section mb-3 fw-bold text-white"><i class="bi bi-person"></i> Identificação</div>
+            <div class="row g-3">
+                <div class="col-md-2">
+                    <label class="small text-white-50">Código</label>
+                        <input type="text" class="form-control bg-dark text-white border-secondary" 
+                           value="{{ provedor.id|default:'Gerado ao salvar' }}" readonly>
+                <div class="col-md-6">
+                    <label class="small text-white-50">Nome</label>
+                        <input type="text" name="nome" class="form-control bg-dark text-white border-secondary" value="{{ provedor.nome|default:'' }}" required>
+                </div>
+                <div class="col-md-3">
+                    <label class="small text-white-50">Dt.Cadastro</label>
+                    <input type="text" class="form-control bg-dark text-white border-secondary" value="02/05/2026" readonly>
+                </div>
+                <div class="col-md-3 d-flex align-items-center pt-3">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="ativo" id="switchAtivo" {% if provedor.ativo or not provedor %}checked{% endif %}>
+                        <label class="form-check-label text-white" for="switchAtivo">Ativo</label>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <label class="small text-white-50">Razão Social</label>
+                    <input type="text" name="razao_social" class="form-control bg-dark text-white border-secondary" value="{{ provedor.razao_social|default:'' }}">
+                </div>
+                <div class="col-md-6">
+                    <label class="small text-white-50">CNPJ</label>
+                    <input type="text" name="cnpj" class="form-control bg-dark text-white border-secondary" value="{{ provedor.cnpj|default:'' }}">
+                </div>
+            </div>
+        </div>
+
+        <!-- Bloco Meios Físicos e Atuação -->
+        <div class="row g-4">
+            <div class="col-md-6">
+                <div class="card-custom p-3 border rounded h-100" style="background-color: rgba(255,255,255,0.05);">
+                    <div class="header-section mb-2 fw-bold text-white"><i class="bi bi-broadcast"></i> Meios Físicos</div>
+                    <div class="form-check text-white">
+                        <input class="form-check-input" type="checkbox" name="fibra" id="fibra" {% if provedor.fibra %}checked{% endif %}>
+                        <label class="form-check-label" for="fibra">Fibra</label>
+                    </div>
+                    <div class="form-check text-white">
+                        <input class="form-check-input" type="checkbox" name="radio" id="radio" {% if provedor.radio %}checked{% endif %}>
+                        <label class="form-check-label" for="radio">Rádio</label>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card-custom p-3 border rounded h-100" style="background-color: rgba(255,255,255,0.05);">
+                    <div class="header-section mb-2 fw-bold text-white"><i class="bi bi-list-check"></i> Atuação/Serviços</div>
+                    <div class="form-check text-white">
+                            <input class="form-check-input" type="checkbox" name="link_dedicado" {% if provedor.link_dedicado %}checked{% endif %}>
+                            <label>Link Dedicado</label>
+                        </div>
+                        <div class="form-check text-white">
+                            <input class="form-check-input" type="checkbox" name="link_banda_larga" {% if provedor.link_banda_larga %}checked{% endif %}>
+                            <label>Link Banda Larga</label>
+                        </div>
+                        <div class="form-check text-white">
+                            <input class="form-check-input" type="checkbox" name="zona_rural" {% if provedor.zona_rural %}checked{% endif %}>
+                            <label>Zona Rural</label>
+                        </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bloco Observação (Conforme image_949a20.png) -->
+        <div class="card-custom mt-4 p-3 border rounded" style="background-color: rgba(255,255,255,0.05);">
+            <div class="header-section mb-2 fw-bold text-white"><i class="bi bi-info-circle"></i> Observação</div>
+            <textarea name="observacao" class="form-control bg-dark text-white border-secondary" rows="2">{{ provedor.observacao|default:'' }}</textarea>
+        </div>
+        
+        <!-- Área de Cidades e Contatos -->
+        <div class="row mt-4">
+    
+    <!-- Bloco Cidades -->
+    <div class="col-md-6">
+        <div class="card-custom p-3 border rounded shadow-sm" style="background-color: rgba(255,255,255,0.05);">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <div class="header-section text-white small">Cidades <i class="bi bi-info-circle"></i></div>
+                {% if provedor.id %}
+                    <button type="button" class="btn btn-sm btn-primary py-0 px-2"><i class="bi bi-plus-lg"></i></button>
+                {% endif %}
+            </div>
+            
+            {% if provedor.id %}
+                
+            <!-- Aqui entrará a tabela de cidades depois -->
+                <p class="text-white-50 small">Nenhuma cidade vinculada.</p>
+            {% else %}
+                <p class="text-white-50 small">Salve e Edite para Incluir Cidades</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Bloco Contatos -->
+    <div class="col-md-6">
+        <div class="card-custom p-3 border rounded shadow-sm" style="background-color: rgba(255,255,255,0.05);">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <div class="header-section text-white small">Contatos <i class="bi bi-info-circle"></i></div>
+                {% if provedor.id %}
+                    
+                <!-- BOTÃO QUE ABRE O MODAL -->
+                    <button type="button" class="btn btn-sm btn-primary py-0 px-2" data-bs-toggle="modal" data-bs-target="#modalContato">
+                        <i class="bi bi-plus-lg"></i>
+                    </button>
+                {% endif %}
+            </div>
+
+            {% if provedor.id %}
+                
+            <!-- Tabela de Contatos que aparece na Edição -->
+                <table class="table table-sm table-dark table-hover mb-0 mt-2">
+                    <thead>
+                        <tr class="small text-white-50">
+                            <th>Nome</th>
+                            <th>Telefone</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for contato in provedor.contatos.all %}
+                        <tr class="small">
+                            <td>{{ contato.nome }}</td>
+                            <td>{{ contato.telefone }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="2" class="text-center text-white-50 small">Nenhum contato.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p class="text-white-50 small">Salve e Edite para Incluir Contatos</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+        <!-- Botões de Ação (Abaixo da image_949a20.png) -->
+        <div class="mt-4 mb-5">
+            <button type="submit" class="btn btn-primary px-4 shadow">Salvar</button>
+            <a href="{% url 'cadastro' %}" class="btn btn-info text-white px-4">Cancelar</a>
+            <button type="reset" class="btn btn-success px-4">Limpar</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+<!-- Modal para Cadastrar Contato -->
+<div class="modal fade" id="modalContato" tabindex="-1" aria-labelledby="modalContatoLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content bg-dark text-white border-secondary">
+      <div class="modal-header border-secondary">
+        <h5 class="modal-title" id="modalContatoLabel"><i class="bi bi-person-badge"></i> Cadastro de Contato</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      
+      <!-- O action usa a função que adicionamos na views.py -->
+      <form action="{% url 'adicionar_contato' provedor.id %}" method="post">
+        {% csrf_token %}
+        <div class="modal-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="small text-white-50">Nome</label>
+                    <input type="text" name="contato_nome" class="form-control bg-dark text-white border-secondary" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="small text-white-50">Cargo</label>
+                    <input type="text" name="contato_cargo" class="form-control bg-dark text-white border-secondary">
+                </div>
+                <div class="col-md-6">
+                    <label class="small text-white-50">Telefone</label>
+                    <input type="text" name="contato_telefone" class="form-control bg-dark text-white border-secondary">
+                </div>
+                <div class="col-md-6">
+                    <label class="small text-white-50">E-mail</label>
+                    <input type="email" name="contato_email" class="form-control bg-dark text-white border-secondary">
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer border-secondary">
+          <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Salvar Contato</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

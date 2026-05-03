@@ -9,8 +9,8 @@
         </div>
     {% endfor %}
 {% endif %}
+
 <div class="container-fluid px-4 py-3">
-    <!-- Botão Voltar -->
     <div class="mb-3">
         <a href="{% url 'cadastro' %}" class="btn btn-info text-white fw-bold shadow-sm">Voltar</a>
     </div>
@@ -24,15 +24,12 @@
             <div class="row g-3">
                 <div class="col-md-2">
                     <label class="small text-white-50">Código</label>
-                        <input type="text" class="form-control bg-dark text-white border-secondary" 
+                    <input type="text" class="form-control bg-dark text-white border-secondary" 
                            value="{{ provedor.id|default:'Gerado ao salvar' }}" readonly>
+                </div>
                 <div class="col-md-6">
                     <label class="small text-white-50">Nome</label>
-                        <input type="text" name="nome" class="form-control bg-dark text-white border-secondary" value="{{ provedor.nome|default:'' }}" required>
-                </div>
-                <div class="col-md-3">
-                    <label class="small text-white-50">Dt.Cadastro</label>
-                    <input type="text" class="form-control bg-dark text-white border-secondary" value="02/05/2026" readonly>
+                    <input type="text" name="nome" class="form-control bg-dark text-white border-secondary" value="{{ provedor.nome|default:'' }}" required>
                 </div>
                 <div class="col-md-3 d-flex align-items-center pt-3">
                     <div class="form-check form-switch">
@@ -51,7 +48,7 @@
             </div>
         </div>
 
-        <!-- Bloco Meios Físicos e Atuação -->
+        <!-- Bloco Meios Físicos e Atuação (ESTRUTURA QUE VOCÊ GOSTA) -->
         <div class="row g-4">
             <div class="col-md-6">
                 <div class="card-custom p-3 border rounded h-100" style="background-color: rgba(255,255,255,0.05);">
@@ -70,139 +67,197 @@
                 <div class="card-custom p-3 border rounded h-100" style="background-color: rgba(255,255,255,0.05);">
                     <div class="header-section mb-2 fw-bold text-white"><i class="bi bi-list-check"></i> Atuação/Serviços</div>
                     <div class="form-check text-white">
-                            <input class="form-check-input" type="checkbox" name="link_dedicado" {% if provedor.link_dedicado %}checked{% endif %}>
-                            <label>Link Dedicado</label>
-                        </div>
-                        <div class="form-check text-white">
-                            <input class="form-check-input" type="checkbox" name="link_banda_larga" {% if provedor.link_banda_larga %}checked{% endif %}>
-                            <label>Link Banda Larga</label>
-                        </div>
-                        <div class="form-check text-white">
-                            <input class="form-check-input" type="checkbox" name="zona_rural" {% if provedor.zona_rural %}checked{% endif %}>
-                            <label>Zona Rural</label>
-                        </div>
+                        <input class="form-check-input" type="checkbox" name="link_dedicado" {% if provedor.link_dedicado %}checked{% endif %}>
+                        <label>Link Dedicado</label>
+                    </div>
+                    <div class="form-check text-white">
+                        <input class="form-check-input" type="checkbox" name="link_banda_larga" {% if provedor.link_banda_larga %}checked{% endif %}>
+                        <label>Link Banda Larga</label>
+                    </div>
+                    <div class="form-check text-white">
+                        <input class="form-check-input" type="checkbox" name="zona_rural" {% if provedor.zona_rural %}checked{% endif %}>
+                        <label>Zona Rural</label>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- Bloco Observação (Conforme image_949a20.png) -->
+        <!-- Bloco Observação -->
         <div class="card-custom mt-4 p-3 border rounded" style="background-color: rgba(255,255,255,0.05);">
             <div class="header-section mb-2 fw-bold text-white"><i class="bi bi-info-circle"></i> Observação</div>
             <textarea name="observacao" class="form-control bg-dark text-white border-secondary" rows="2">{{ provedor.observacao|default:'' }}</textarea>
         </div>
         
-        <!-- Área de Cidades e Contatos -->
+        <!-- Tabelas de Cidades e Contatos -->
         <div class="row mt-4">
-    
-    <!-- Bloco Cidades -->
-    <div class="col-md-6">
-        <div class="card-custom p-3 border rounded shadow-sm" style="background-color: rgba(255,255,255,0.05);">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-                <div class="header-section text-white small">Cidades <i class="bi bi-info-circle"></i></div>
-                {% if provedor.id %}
-                    <button type="button" class="btn btn-sm btn-primary py-0 px-2"><i class="bi bi-plus-lg"></i></button>
-                {% endif %}
+            <!-- Cidades -->
+            <div class="col-md-6">
+                <div class="card-custom p-3 border rounded shadow-sm h-100" style="background-color: rgba(255,255,255,0.05);">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="header-section text-white fw-bold">Cidades <i class="bi bi-geo-alt"></i></div>
+                        <div class="d-flex gap-2">
+                            {% if provedor.id %}
+                                <button type="button" class="btn btn-sm btn-outline-success py-0 px-2" data-bs-toggle="modal" data-bs-target="#modalImportarCSV">
+                                    <i class="bi bi-file-earmark-spreadsheet"></i> CSV
+                                </button>
+                                <button type="button" class="btn btn-sm btn-primary py-0 px-2" data-bs-toggle="modal" data-bs-target="#modalCidade">
+                                    <i class="bi bi-plus-lg"></i>
+                                </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <table class="table table-sm table-dark table-hover mb-0 mt-2">
+                        <thead>
+                            <tr class="small text-white-50">
+                                <th>Cidade</th>
+                                <th>UF</th>
+                                <th class="text-center">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if provedor.id %}
+                                {% for cidade in provedor.cidades.all %}
+                                <tr class="small align-middle">
+                                    <td>{{ cidade.nome }}</td>
+                                    <td>{{ cidade.uf }}</td>
+                                    <td class="text-center">
+                                        <a href="{% url 'excluir_cidade' cidade.id %}" class="text-danger" onclick="return confirm('Excluir esta cidade?')"><i class="bi bi-trash"></i></a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="3" class="text-center text-white-50 small italic py-3">Sem cidades.</td></tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr><td colspan="3" class="text-center text-white-50 small italic py-3">Disponível após salvar.</td></tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
             </div>
-            
-            {% if provedor.id %}
-                
-            <!-- Aqui entrará a tabela de cidades depois -->
-                <p class="text-white-50 small">Nenhuma cidade vinculada.</p>
-            {% else %}
-                <p class="text-white-50 small">Salve e Edite para Incluir Cidades</p>
-            {% endif %}
-        </div>
-    </div>
 
-    <!-- Bloco Contatos -->
-    <div class="col-md-6">
-        <div class="card-custom p-3 border rounded shadow-sm" style="background-color: rgba(255,255,255,0.05);">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-                <div class="header-section text-white small">Contatos <i class="bi bi-info-circle"></i></div>
-                {% if provedor.id %}
-                    
-                <!-- BOTÃO QUE ABRE O MODAL -->
-                    <button type="button" class="btn btn-sm btn-primary py-0 px-2" data-bs-toggle="modal" data-bs-target="#modalContato">
-                        <i class="bi bi-plus-lg"></i>
-                    </button>
-                {% endif %}
+            <!-- Contatos (ATUALIZADO COM CARGO E E-MAIL) -->
+            <div class="col-md-6">
+                <div class="card-custom p-3 border rounded shadow-sm h-100" style="background-color: rgba(255,255,255,0.05);">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="header-section text-white fw-bold">Contatos <i class="bi bi-person-lines-fill"></i></div>
+                        {% if provedor.id %}
+                            <button type="button" class="btn btn-sm btn-primary py-0 px-2" data-bs-toggle="modal" data-bs-target="#modalContato">
+                                <i class="bi bi-plus-lg"></i>
+                            </button>
+                        {% endif %}
+                    </div>
+                    <table class="table table-sm table-dark table-hover mb-0 mt-2">
+                        <thead>
+                            <tr class="small text-white-50">
+                                <th>Nome</th>
+                                <th>Cargo</th>
+                                <th>Telefone</th>
+                                <th class="text-center">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if provedor.id %}
+                                {% for contato in provedor.contatos.all %}
+                                <tr class="small align-middle">
+                                    <td>{{ contato.nome }}</td>
+                                    <td>{{ contato.cargo|default:"-" }}</td>
+                                    <td>{{ contato.telefone }}</td>
+                                    <td class="text-center">
+                                        <button type="button" class="btn btn-link text-info p-0 me-1" data-bs-toggle="modal" data-bs-target="#modalEditarContato{{ contato.id }}">
+                                            <i class="bi bi-pencil-square"></i>
+                                        </button>
+                                        <a href="{% url 'excluir_contato' contato.id %}" class="text-danger"><i class="bi bi-trash"></i></a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="4" class="text-center text-white-50 small italic py-3">Sem contatos.</td></tr>
+                                {% endfor %}
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
             </div>
-
-            {% if provedor.id %}
-                
-            <!-- Tabela de Contatos que aparece na Edição -->
-                <table class="table table-sm table-dark table-hover mb-0 mt-2">
-                    <thead>
-                        <tr class="small text-white-50">
-                            <th>Nome</th>
-                            <th>Telefone</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for contato in provedor.contatos.all %}
-                        <tr class="small">
-                            <td>{{ contato.nome }}</td>
-                            <td>{{ contato.telefone }}</td>
-                        </tr>
-                        {% empty %}
-                        <tr><td colspan="2" class="text-center text-white-50 small">Nenhum contato.</td></tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            {% else %}
-                <p class="text-white-50 small">Salve e Edite para Incluir Contatos</p>
-            {% endif %}
         </div>
-    </div>
-</div>
 
-        <!-- Botões de Ação (Abaixo da image_949a20.png) -->
         <div class="mt-4 mb-5">
-            <button type="submit" class="btn btn-primary px-4 shadow">Salvar</button>
-            <a href="{% url 'cadastro' %}" class="btn btn-info text-white px-4">Cancelar</a>
-            <button type="reset" class="btn btn-success px-4">Limpar</button>
+            <button type="submit" class="btn btn-primary px-4 shadow">Salvar Provedor</button>
+            <a href="{% url 'cadastro' %}" class="btn btn-info text-white px-4 ms-2">Cancelar</a>
         </div>
     </form>
 </div>
-{% endblock %}
 
-<!-- Modal para Cadastrar Contato -->
-<div class="modal fade" id="modalContato" tabindex="-1" aria-labelledby="modalContatoLabel" aria-hidden="true">
-  <div class="modal-dialog modal-lg">
-    <div class="modal-content bg-dark text-white border-secondary">
-      <div class="modal-header border-secondary">
-        <h5 class="modal-title" id="modalContatoLabel"><i class="bi bi-person-badge"></i> Cadastro de Contato</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      
-      <!-- O action usa a função que adicionamos na views.py -->
-      <form action="{% url 'adicionar_contato' provedor.id %}" method="post">
-        {% csrf_token %}
-        <div class="modal-body">
-            <div class="row g-3">
-                <div class="col-md-6">
-                    <label class="small text-white-50">Nome</label>
-                    <input type="text" name="contato_nome" class="form-control bg-dark text-white border-secondary" required>
-                </div>
-                <div class="col-md-6">
-                    <label class="small text-white-50">Cargo</label>
-                    <input type="text" name="contato_cargo" class="form-control bg-dark text-white border-secondary">
-                </div>
-                <div class="col-md-6">
-                    <label class="small text-white-50">Telefone</label>
-                    <input type="text" name="contato_telefone" class="form-control bg-dark text-white border-secondary">
-                </div>
-                <div class="col-md-6">
-                    <label class="small text-white-50">E-mail</label>
-                    <input type="email" name="contato_email" class="form-control bg-dark text-white border-secondary">
-                </div>
+<!-- MODAIS -->
+
+{% if provedor.id %}
+    <!-- Modal CSV (COM PADRÃO DE COLUNAS) -->
+    <div class="modal fade" id="modalImportarCSV" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content bg-dark text-white border-secondary">
+                <form action="{% url 'importar_cidades_csv' provedor.id %}" method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <div class="modal-header border-secondary">
+                        <h5 class="modal-title">Importar CSV</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-secondary small py-2">
+                            <strong>Formato esperado:</strong> O arquivo deve ter 2 colunas separadas por ponto e vírgula (;) ou vírgula (,).
+                            <br>Exemplo: <code>Nome da Cidade;UF</code>
+                        </div>
+                        <table class="table table-bordered table-sm text-white small mb-3 text-center">
+                            <thead class="table-secondary text-dark">
+                                <tr><th>Cidade</th><th>UF</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr><td>Tupanciretã</td><td>RS</td></tr>
+                                <tr><td>Júlio de Castilhos</td><td>RS</td></tr>
+                            </tbody>
+                        </table>
+                        <input type="file" name="arquivo_csv" class="form-control bg-dark text-white border-secondary" accept=".csv" required>
+                    </div>
+                    <div class="modal-footer border-secondary">
+                        <button type="submit" class="btn btn-success w-100">Importar Cidades</button>
+                    </div>
+                </form>
             </div>
         </div>
-        <div class="modal-footer border-secondary">
-          <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Cancelar</button>
-          <button type="submit" class="btn btn-primary">Salvar Contato</button>
-        </div>
-      </form>
     </div>
-  </div>
-</div>
+
+    <!-- Modal Novo Contato (Cargo e E-mail incluídos) -->
+    <div class="modal fade" id="modalContato" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content bg-dark text-white border-secondary">
+                <form action="{% url 'adicionar_contato' provedor.id %}" method="post">
+                    {% csrf_token %}
+                    <div class="modal-header border-secondary">
+                        <h5 class="modal-title">Novo Contato</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-2">
+                            <label class="small text-white-50">Nome</label>
+                            <input type="text" name="contato_nome" class="form-control bg-dark text-white border-secondary" required>
+                        </div>
+                        <div class="mb-2">
+                            <label class="small text-white-50">Cargo</label>
+                            <input type="text" name="contato_cargo" class="form-control bg-dark text-white border-secondary">
+                        </div>
+                        <div class="mb-2">
+                            <label class="small text-white-50">Telefone</label>
+                            <input type="text" name="contato_telefone" class="form-control bg-dark text-white border-secondary">
+                        </div>
+                        <div class="mb-2">
+                            <label class="small text-white-50">E-mail</label>
+                            <input type="email" name="contato_email" class="form-control bg-dark text-white border-secondary">
+                        </div>
+                    </div>
+                    <div class="modal-footer border-secondary">
+                        <button type="submit" class="btn btn-primary w-100">Salvar Contato</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+{% endif %}
+
+{% endblock %}

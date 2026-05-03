@@ -23,14 +23,18 @@ class Provedor(models.Model):
 
     def __str__(self):
         return self.nome
-
+    
 class CidadeAtendida(models.Model):
-    provedor = models.ForeignKey(Provedor, related_name='cidades', on_delete=models.CASCADE)
-    cidade = models.CharField(max_length=100)
+    provedor = models.ForeignKey(Provedor, on_delete=models.CASCADE, related_name='cidades')
+    nome = models.CharField(max_length=100)
     uf = models.CharField(max_length=2)
 
+    class Meta:
+        # Isso impede que o mesmo provedor tenha a mesma cidade/UF duas vezes
+        unique_together = ('provedor', 'nome', 'uf')
+
     def __str__(self):
-        return f"{self.cidade} - {self.uf}"
+        return f"{self.nome}/{self.uf}"
 
 class Contato(models.Model):
     provedor = models.ForeignKey(Provedor, related_name='contatos', on_delete=models.CASCADE)

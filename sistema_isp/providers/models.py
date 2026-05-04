@@ -10,6 +10,9 @@ class Provedor(models.Model):
     data_cadastro = models.DateTimeField(auto_now_add=True)
     ativo = models.BooleanField(default=True)
     
+    # Parceiros_Trunk
+    parceiro_bst = models.BooleanField(default=False)
+    
     # Meios Físicos
     fibra = models.BooleanField(default=False)
     radio = models.BooleanField(default=False)

@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-4">
+        <div class="card p-3 shadow-sm">
+            <h4 class="fw-bold text-primary">Consulta de Provedores</h4>
+            <hr>
+            <form method="GET">
+                <div class="mb-3">
+                    <input type="text" name="busca" class="form-control" placeholder="Cidade ou UF..." value="{{ request.GET.busca }}">
+                </div>
+                <button type="submit" class="btn btn-primary w-100">Pesquisar Localidade</button>
+            </form>
+        </div>
+
+        <div class="mt-3 list-group overflow-auto" style="max-height: 400px;">
+            {% for p in resultados %}
+            <div class="list-group-item">
+                <strong class="d-block">{{ p.nome_fantasia }}</strong>
+                <small class="text-muted">{{ p.cidade }} / {{ p.uf }} - {{ p.tecnologia }}</small>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="col-md-8">
+        <div id="map" style="height: 550px; border-radius: 15px; border: 2px solid #ddd;"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Inicializa o mapa focado no Brasil (Brasília)
+    var map = L.map('map').setView([-15.7801, -47.9292], 4);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap'
+    }).addTo(map);
+
+    // Renderiza os pins dinamicamente do banco de dados
+    {% for p in resultados %}
+        {% if p.latitude and p.longitude %}
+            L.marker([{{ p.latitude }}, {{ p.longitude }}])
+                .addTo(map)
+                .bindPopup("<b>{{ p.nome_fantasia }}</b><br>Tecnologia: {{ p.tecnologia }}");
+        {% endif %}
+    {% endfor %}
+</script>
+{% endblock %}

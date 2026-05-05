@@ -16,33 +16,32 @@ def lista_provedores(request):
 
 def editar_provedor(request, pk=None):
     provedor = get_object_or_404(Provedor, pk=pk) if pk else None
-    # Dentro de editar_provedor, no bloco if request.method == "POST":
-    parceiro_bst = request.POST.get('parceiro_bst') == 'on'
-
-    # Se estiver atualizando:
-    provedor.parceiro_bst = parceiro_bst
-
-    # Se estiver criando (no Provedor.objects.create):
-    parceiro_bst=parceiro_bst
 
     if request.method == "POST":
+        # Captura de dados do formulário
         nome = request.POST.get('nome')
         razao_social = request.POST.get('razao_social')
         cnpj = request.POST.get('cnpj')
         observacao = request.POST.get('observacao')
         
+        # Checkboxes e Switch
         ativo = request.POST.get('ativo') == 'on'
         fibra = request.POST.get('fibra') == 'on'
         radio = request.POST.get('radio') == 'on'
         link_dedicado = request.POST.get('link_dedicado') == 'on'
         link_banda_larga = request.POST.get('link_banda_larga') == 'on'
         zona_rural = request.POST.get('zona_rural') == 'on'
+        
+        # Novo campo Parceiro Trunk
+        parceiro_bst = request.POST.get('parceiro_bst') == 'on'
 
+        # Validação de CNPJ duplicado para novos cadastros
         if not pk and Provedor.objects.filter(cnpj=cnpj).exists():
             messages.error(request, "Provedor já cadastrado com este CNPJ!")
             return render(request, 'providers/cadastro_edit.html', {'provedor': provedor})
 
         if provedor:
+            # Atualização de registro existente
             provedor.nome = nome
             provedor.razao_social = razao_social
             provedor.cnpj = cnpj
@@ -53,13 +52,22 @@ def editar_provedor(request, pk=None):
             provedor.link_dedicado = link_dedicado
             provedor.link_banda_larga = link_banda_larga
             provedor.zona_rural = zona_rural
+            provedor.parceiro_bst = parceiro_bst  # Salvando o novo campo
             provedor.save()
         else:
+            # Criação de novo registro
             Provedor.objects.create(
-                nome=nome, razao_social=razao_social, cnpj=cnpj,
-                observacao=observacao, ativo=ativo, fibra=fibra,
-                radio=radio, link_dedicado=link_dedicado,
-                link_banda_larga=link_banda_larga, zona_rural=zona_rural
+                nome=nome,
+                razao_social=razao_social,
+                cnpj=cnpj,
+                observacao=observacao,
+                ativo=ativo,
+                fibra=fibra,
+                radio=radio,
+                link_dedicado=link_dedicado,
+                link_banda_larga=link_banda_larga,
+                zona_rural=zona_rural,
+                parceiro_bst=parceiro_bst  # Salvando o novo campo no create
             )
         return redirect('cadastro')
 

@@ -1,19 +1,25 @@
 import csv
 import io
+import unicodedata
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from django.db.models import Q
+from .models import Provedor, Contato, CidadeAtendida 
 from django.http import HttpResponse
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.models import User
-
-# Importação centralizada dos modelos
-from .models import Provedor, Contato, CidadeAtendida 
 
 # --- GESTÃO DE ACESSO (ADMIN) ---
 
 def e_admin(user):
     return user.is_superuser
+
+# Funções de normalização mantidas para uso futuro ou consistência
+def normalizar_texto(texto):
+    if not texto: return ""
+    nfkd_form = unicodedata.normalize('NFKD', texto)
+    texto_sem_acentos = "".join([c for c in nfkd_form if not unicodedata.combining(c)])
+    return texto_sem_acentos.lower().replace('-', ' ').strip()
 
 @user_passes_test(e_admin)
 def gestao_usuarios(request):
@@ -45,11 +51,9 @@ def lista_provedores(request):
 
 @login_required
 def consulta_provedores(request):
-    fornecedor_query = request.GET.get('fornecedor')
-    uf_query = request.GET.get('uf')
-    cidade1 = request.GET.get('cidade1')
-    cidade2 = request.GET.get('cidade2')
-    cidade3 = request.GET.get('cidade3')
+    fornecedor_query = request.GET.get('fornecedor', '').strip()
+    uf_query = request.GET.get('uf', '').strip()
+    cidades = [request.GET.get(f'cidade{i}', '').strip() for i in range(1, 4)]
 
     provedores = Provedor.objects.filter(ativo=True)
 
@@ -60,57 +64,77 @@ def consulta_provedores(request):
         )
 
     if uf_query:
-        provedores = provedores.filter(cidades__uf__iexact=uf_query.strip())
+        provedores = provedores.filter(cidades__uf__iexact=uf_query)
 
     filtros_cidade = Q()
-    if cidade1: filtros_cidade |= Q(cidades__nome__icontains=cidade1.strip())
-    if cidade2: filtros_cidade |= Q(cidades__nome__icontains=cidade2.strip())
-    if cidade3: filtros_cidade |= Q(cidades__nome__icontains=cidade3.strip())
+    for cidade in cidades:
+        if cidade:
+            filtros_cidade |= Q(cidades__nome__icontains=cidade)
     
     if filtros_cidade:
         provedores = provedores.filter(filtros_cidade)
 
-    provedores = provedores.distinct()
-    return render(request, 'providers/consulta.html', {'provedores': provedores})
+    return render(request, 'providers/consulta.html', {'provedores': provedores.distinct()})
 
 @login_required
 def importar_e_mapear_projeto(request):
-    """Mapeia uma lista de cidades em CSV contra os 1.500 provedores."""
+    """
+    CORREÇÃO: Mapeia cidades da planilha aceitando qualquer escrita e 
+    retornando todos os provedores correspondentes do banco.
+    """
     if request.method == 'POST' and request.FILES.get('arquivo_cidades'):
         arquivo = request.FILES['arquivo_cidades']
-        response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename="resultado_mapeamento.csv"'
         
-        writer = csv.writer(response)
-        writer.writerow(['CIDADE PESQUISADA', 'UF', 'FORNECEDOR ENCONTRADO', 'TECNOLOGIA', 'CONTATO'])
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="mapeamento_fornecedores.csv"'
+        
+        # BOM para Excel reconhecer acentuação em UTF-8 ou use latin-1
+        writer = csv.writer(response, delimiter=';')
+        writer.writerow(['CIDADE PESQUISADA', 'UF', 'FORNECEDOR NO SISTEMA', 'TECNOLOGIAS', 'CONTATO'])
 
         try:
-            decoded_file = arquivo.read().decode('utf-8').splitlines()
-            reader = csv.reader(decoded_file)
+            # Tenta latin-1 (padrão MS-DOS/Excel) para não quebrar com acentos
+            conteudo = arquivo.read().decode('latin-1').splitlines()
+            reader = csv.reader(conteudo, delimiter=';')
             next(reader, None) 
 
             for linha in reader:
-                if not linha: continue
-                cidade_nome = linha[0].strip()
-                uf_sigla = linha[1].strip() if len(linha) > 1 else None
-
-                filtros = Q(cidades__nome__iexact=cidade_nome)
-                if uf_sigla: filtros &= Q(cidades__uf__iexact=uf_sigla)
+                if not linha or len(linha) < 1: continue
                 
-                provedores_encontrados = Provedor.objects.filter(filtros).distinct()
+                # Aceita qualquer escrita: limpa espaços e usa busca parcial (icontains)
+                cidade_planilha = linha[0].strip()
+                uf_planilha = linha[1].strip().upper() if len(linha) > 1 else None
 
-                if provedores_encontrados.exists():
-                    for p in provedores_encontrados:
+                # Busca no banco ignorando acentos/case (dependendo da collation do banco)
+                filtros = Q(cidades__nome__icontains=cidade_planilha)
+                if uf_planilha:
+                    filtros &= Q(cidades__uf__iexact=uf_planilha)
+
+                provedores_no_banco = Provedor.objects.filter(filtros).distinct()
+
+                if provedores_no_banco.exists():
+                    for p in provedores_no_banco:
                         tecs = []
                         if p.fibra: tecs.append("Fibra")
                         if p.radio: tecs.append("Rádio")
-                        writer.writerow([cidade_nome.upper(), uf_sigla.upper() if uf_sigla else "---", p.nome, " / ".join(tecs), "Ver no Sistema"])
+                        if p.link_dedicado: tecs.append("Dedicado")
+                        
+                        writer.writerow([
+                            cidade_planilha.upper(),
+                            uf_planilha or "---",
+                            p.nome,
+                            " / ".join(tecs),
+                            "Ver no Sistema"
+                        ])
                 else:
-                    writer.writerow([cidade_nome.upper(), uf_sigla, "NENHUM ENCONTRADO", "-", "-"])
+                    writer.writerow([cidade_planilha.upper(), uf_planilha or "---", "NÃO ENCONTRADO", "-", "-"])
+
             return response
+
         except Exception as e:
-            messages.error(request, f"Erro: {e}")
+            messages.error(request, f"Erro no mapeamento: {e}")
             return redirect('consulta')
+
     return redirect('consulta')
 
 
@@ -121,19 +145,18 @@ def editar_provedor(request, pk=None):
     provedor = get_object_or_404(Provedor, pk=pk) if pk else None
 
     if request.method == "POST":
-        dados = {
+        # Simplificação da captura de booleanos
+        campos_bool = [
+            'ativo', 'fibra', 'radio', 'link_dedicado', 
+            'link_banda_larga', 'zona_rural', 'parceiro_bst'
+        ]
+        dados = {campo: request.POST.get(campo) == 'on' for campo in campos_bool}
+        dados.update({
             'nome': request.POST.get('nome'),
             'razao_social': request.POST.get('razao_social'),
             'cnpj': request.POST.get('cnpj'),
             'observacao': request.POST.get('observacao'),
-            'ativo': request.POST.get('ativo') == 'on',
-            'fibra': request.POST.get('fibra') == 'on',
-            'radio': request.POST.get('radio') == 'on',
-            'link_dedicado': request.POST.get('link_dedicado') == 'on',
-            'link_banda_larga': request.POST.get('link_banda_larga') == 'on',
-            'zona_rural': request.POST.get('zona_rural') == 'on',
-            'parceiro_bst': request.POST.get('parceiro_bst') == 'on',
-        }
+        })
 
         if not pk and Provedor.objects.filter(cnpj=dados['cnpj']).exists():
             messages.error(request, "CNPJ já cadastrado!")
@@ -145,7 +168,7 @@ def editar_provedor(request, pk=None):
             provedor.save()
             messages.success(request, "Atualizado com sucesso!")
         else:
-            Provedor.objects.create(**dados)
+            provedor = Provedor.objects.create(**dados)
             messages.success(request, "Cadastrado com sucesso!")
         
         return redirect('lista_provedores')
@@ -159,7 +182,7 @@ def excluir_provedor(request, pk):
     return redirect('lista_provedores')
 
 
-# --- GESTÃO DE CONTATOS (CORRIGIDO) ---
+# --- GESTÃO DE CONTATOS ---
 
 @login_required
 def adicionar_contato(request, provedor_id):
@@ -176,18 +199,15 @@ def adicionar_contato(request, provedor_id):
 
 @login_required
 def editar_contato(request, contato_id):
-    """Função única para renderizar e salvar a edição de contato."""
     contato = get_object_or_404(Contato, id=contato_id)
-    id_p = contato.provedor.id
-    
     if request.method == 'POST':
-        contato.nome = request.POST.get('contato_nome') # Nome do campo ajustado para seu HTML
+        contato.nome = request.POST.get('contato_nome')
         contato.cargo = request.POST.get('contato_cargo')
         contato.telefone = request.POST.get('contato_telefone')
         contato.email = request.POST.get('contato_email')
         contato.save()
         messages.success(request, "Contato atualizado!")
-        return redirect('editar_provedor', pk=id_p)
+        return redirect('editar_provedor', pk=contato.provedor.id)
     
     return render(request, 'providers/contato_edit.html', {'contato': contato})
 
@@ -206,37 +226,37 @@ def excluir_contato(request, contato_id):
 def adicionar_cidade(request, provedor_id):
     if request.method == 'POST':
         provedor = get_object_or_404(Provedor, id=provedor_id)
-        nome = request.POST.get('cidade_nome')
-        uf = request.POST.get('cidade_uf', '').upper()
+        nome = request.POST.get('cidade_nome', '').strip().title()
+        uf = request.POST.get('cidade_uf', '').upper().strip()
         if nome and uf:
-            CidadeAtendida.objects.create(provedor=provedor, nome=nome, uf=uf)
+            CidadeAtendida.objects.get_or_create(provedor=provedor, nome=nome, uf=uf)
     return redirect('editar_provedor', pk=provedor_id)
 
 @login_required
 def importar_cidades_csv(request, provedor_id):
     if request.method == "POST" and request.FILES.get('arquivo_csv'):
         provedor = get_object_or_404(Provedor, id=provedor_id)
-        csv_file = request.FILES['arquivo_csv'].read().decode('utf-8').splitlines()
-        reader = csv.reader(csv_file)
-        
-        cidades_criadas = 0
-        for linha in reader:
-            if len(linha) >= 2:
-                CidadeAtendida.objects.get_or_create(
-                    provedor=provedor, 
-                    nome=linha[0].strip(), 
-                    uf=linha[1].strip().upper()
-                )
-                cidades_criadas += 1
-        
-        messages.success(request, f"{cidades_criadas} cidades importadas com sucesso!")
+        try:
+            csv_file = request.FILES['arquivo_csv'].read().decode('latin-1').splitlines()
+            reader = csv.reader(csv_file, delimiter=';')
+            
+            cidades_criadas = 0
+            for linha in reader:
+                if len(linha) >= 2:
+                    nome = linha[0].strip().title()
+                    uf = linha[1].strip().upper()
+                    CidadeAtendida.objects.get_or_create(provedor=provedor, nome=nome, uf=uf)
+                    cidades_criadas += 1
+            messages.success(request, f"{cidades_criadas} cidades processadas!")
+        except Exception as e:
+            messages.error(request, f"Erro: {e}")
+            
     return redirect('editar_provedor', pk=provedor_id)
 
 @login_required
 def excluir_todas_cidades(request, provedor_id):
-    """Remove o mapeamento de todas as cidades deste provedor."""
     CidadeAtendida.objects.filter(provedor_id=provedor_id).delete()
-    messages.warning(request, "Todas as cidades foram removidas deste provedor.")
+    messages.warning(request, "Cidades removidas.")
     return redirect('editar_provedor', pk=provedor_id)
 
 @login_required

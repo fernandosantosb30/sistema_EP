@@ -2,16 +2,23 @@ from django.contrib import admin
 from django.urls import path
 from django.contrib.auth import views as auth_views
 from providers import views as providers_views
+from django.views.generic.base import RedirectView # Adicione este import
 
 urlpatterns = [
+    path('', RedirectView.as_view(url='/login/'), name='index'),
+    
     path('admin/', admin.site.urls),
+    
+    path('usuarios/', providers_views.gestao_usuarios, name='gestao_usuarios'),
     
     # Login/Logout
     path('login/', auth_views.LoginView.as_view(template_name='registration/login.html'), name='login'),
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
     
+    # 3. HOME (Para onde o usuário vai DEPOIS de logar)
+    path('home/', providers_views.home_view, name='home'),
+    
     # Home e Cadastro
-    path('', providers_views.home_view, name='home'),
     path('cadastro/', providers_views.lista_provedores, name='cadastro'),    
     
     # Gestão de Provedores

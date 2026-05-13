@@ -5,7 +5,6 @@ from django.contrib import messages
 from django.db.models import Q
 from django.http import HttpResponse
 from django.contrib.auth.decorators import login_required, user_passes_test
-from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 
 # Importação centralizada dos modelos
@@ -215,18 +214,22 @@ def adicionar_cidade(request, provedor_id):
 
 @login_required
 def importar_cidades_csv(request, provedor_id):
-    """
-    Função para importar cidades em massa para um provedor específico.
-    Certifique-se de que este nome (importar_cidades_csv) seja idêntico ao do urls.py.
-    """
     if request.method == "POST" and request.FILES.get('arquivo_csv'):
         provedor = get_object_or_404(Provedor, id=provedor_id)
-        csv_file = request.FILES['arquivo_csv']
+        csv_file = request.FILES['arquivo_csv'].read().decode('utf-8').splitlines()
+        reader = csv.reader(csv_file)
         
-        # ... lógica de importação do CSV ...
-        messages.success(request, "Cidades importadas com sucesso!")
-        return redirect('editar_provedor', pk=provedor_id)
-    
+        cidades_criadas = 0
+        for linha in reader:
+            if len(linha) >= 2:
+                CidadeAtendida.objects.get_or_create(
+                    provedor=provedor, 
+                    nome=linha[0].strip(), 
+                    uf=linha[1].strip().upper()
+                )
+                cidades_criadas += 1
+        
+        messages.success(request, f"{cidades_criadas} cidades importadas com sucesso!")
     return redirect('editar_provedor', pk=provedor_id)
 
 @login_required

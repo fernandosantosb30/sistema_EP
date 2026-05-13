@@ -1,3 +1,4 @@
+import os
 """
 Django settings for core project.
 
@@ -120,6 +121,15 @@ USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
+
+# Força o Django a usar a sua URL de login em vez do padrão /accounts/login/
+LOGIN_URL = 'login'
+
+# Define para onde o usuário vai logo após logar com sucesso
+LOGIN_REDIRECT_URL = 'home'
+
+# Define para onde ele vai ao sair do sistema
+LOGOUT_REDIRECT_URL = 'login'
 
 CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
 CRISPY_TEMPLATE_PACK = "bootstrap5"

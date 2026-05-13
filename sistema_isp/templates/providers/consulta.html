@@ -1,51 +1,107 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="row">
-    <div class="col-md-4">
-        <div class="card p-3 shadow-sm">
-            <h4 class="fw-bold text-primary">Consulta de Provedores</h4>
-            <hr>
-            <form method="GET">
-                <div class="mb-3">
-                    <input type="text" name="busca" class="form-control" placeholder="Cidade ou UF..." value="{{ request.GET.busca }}">
-                </div>
-                <button type="submit" class="btn btn-primary w-100">Pesquisar Localidade</button>
-            </form>
-        </div>
+<div class="container mt-4">
+    <h2 class="text-white mb-4"><i class="bi bi-search text-info"></i> Consulta Avançada de Cobertura</h2>
 
-        <div class="mt-3 list-group overflow-auto" style="max-height: 400px;">
-            {% for p in resultados %}
-            <div class="list-group-item">
-                <strong class="d-block">{{ p.nome_fantasia }}</strong>
-                <small class="text-muted">{{ p.cidade }} / {{ p.uf }} - {{ p.tecnologia }}</small>
+    <!-- SEÇÃO NOVA: MAPEAMENTO POR IMPORTAÇÃO (Adicionada aqui) -->
+    <div class="card bg-dark border-info p-4 mb-4" style="border-style: dashed;">
+        <h5 class="text-info"><i class="bi bi-file-earmark-arrow-up"></i> Mapeamento por Importação (Projeto)</h5>
+        <p class="text-white-50 small">Suba um arquivo CSV com a lista de cidades para exportar todos os fornecedores disponíveis.</p>
+        
+        <form action="{% url 'importar_mapeamento' %}" method="post" enctype="multipart/form-data" class="row g-3">
+            {% csrf_token %}
+            <div class="col-md-9">
+                <input type="file" name="arquivo_cidades" class="form-control bg-dark text-white border-secondary" accept=".csv" required>
             </div>
-            {% endfor %}
-        </div>
+            <div class="col-md-3">
+                <button type="submit" class="btn btn-info w-100 fw-bold">
+                    <i class="bi bi-gear-wide-connected"></i> Processar Arquivo
+                </button>
+            </div>
+        </form>
     </div>
 
-    <div class="col-md-8">
-        <div id="map" style="height: 550px; border-radius: 15px; border: 2px solid #ddd;"></div>
+    <!-- SEÇÃO DE FILTROS MANUAIS -->
+    <div class="card bg-dark border-secondary p-4 mb-4">
+        <form method="GET" class="row g-3">
+            <div class="col-md-9">
+                <label class="form-label text-white-50">Fornecedor (Nome ou Razão Social)</label>
+                <input type="text" name="fornecedor" class="form-control bg-dark text-white border-secondary" placeholder="Digite o nome do provedor..." value="{{ request.GET.fornecedor }}">
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label text-white-50">UF</label>
+                <input type="text" name="uf" class="form-control bg-dark text-white border-secondary" placeholder="Ex: RS" maxlength="2" value="{{ request.GET.uf }}">
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label text-white-50">Cidade 1</label>
+                <input type="text" name="cidade1" class="form-control bg-dark text-white border-secondary" placeholder="Cidade A" value="{{ request.GET.cidade1 }}">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label text-white-50">Cidade 2</label>
+                <input type="text" name="cidade2" class="form-control bg-dark text-white border-secondary" placeholder="Cidade B" value="{{ request.GET.cidade2 }}">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label text-white-50">Cidade 3</label>
+                <input type="text" name="cidade3" class="form-control bg-dark text-white border-secondary" placeholder="Cidade C" value="{{ request.GET.cidade3 }}">
+            </div>
+
+            <div class="col-12 d-flex gap-2 mt-4">
+                <button type="submit" class="btn btn-primary px-5">
+                    <i class="bi bi-funnel-fill"></i> Aplicar Filtros
+                </button>
+                <!-- Ajustado para o caminho relativo caso a rota nomeada falhe -->
+                <a href="." class="btn btn-outline-secondary">Limpar Busca</a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Tabela de Resultados -->
+    <div class="table-responsive shadow-sm">
+        <table class="table table-dark table-hover border-secondary">
+            <thead class="table-secondary text-dark">
+                <tr>
+                    <th>Fornecedor</th>
+                    <th>Localidades Atendidas</th>
+                    <th>Trunk</th>
+                    <th class="text-center">Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for provedor in provedores %}
+                <tr>
+                    <td>
+                        <span class="fw-bold">{{ provedor.nome }}</span><br>
+                        <small class="text-info">{{ provedor.cnpj }}</small>
+                    </td>
+                    <td>
+                        <small>
+                        {% for cidade in provedor.cidades.all|slice:":5" %}
+                            {{ cidade.nome }}-{{ cidade.uf }}{% if not forloop.last %}, {% endif %}
+                        {% endfor %}
+                        {% if provedor.cidades.count > 5 %}... (+{{ provedor.cidades.count|add:"-5" }}){% endif %}
+                        </small>
+                    </td>
+                    <td>
+                        {% if provedor.fibra %}<i class="bi bi-lightning-fill text-primary" title="Fibra"></i>{% endif %}
+                        {% if provedor.radio %}<i class="bi bi-broadcast text-warning" title="Rádio"></i>{% endif %}
+                        {% if provedor.parceiro_bst %}<span class="badge bg-success ms-1">BST</span>{% endif %}
+                    </td>
+                    <td class="text-center">
+                        <a href="{% url 'editar_provedor' provedor.id %}" class="btn btn-sm btn-outline-light"><i class="bi bi-pencil"></i></a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" class="text-center py-5 text-white-50">
+                        Nenhum provedor encontrado com os filtros aplicados.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 </div>
-{% endblock %}
-
-{% block scripts %}
-<script>
-    // Inicializa o mapa focado no Brasil (Brasília)
-    var map = L.map('map').setView([-15.7801, -47.9292], 4);
-
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap'
-    }).addTo(map);
-
-    // Renderiza os pins dinamicamente do banco de dados
-    {% for p in resultados %}
-        {% if p.latitude and p.longitude %}
-            L.marker([{{ p.latitude }}, {{ p.longitude }}])
-                .addTo(map)
-                .bindPopup("<b>{{ p.nome_fantasia }}</b><br>Tecnologia: {{ p.tecnologia }}");
-        {% endif %}
-    {% endfor %}
-</script>
 {% endblock %}

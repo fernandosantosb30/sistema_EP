@@ -1,4 +1,4 @@
-{% extends 'providers/base.html' %}
+{% extends 'base.html' %}
 
 {% block content %}
 <div class="container-fluid px-4 py-3">
@@ -12,7 +12,7 @@
     <!-- Container da Tabela -->
     <div class="card shadow-sm border-0" style="background-color: #767e99;">
         <div class="card-body p-0">
-            <!-- Barra de Filtros (Simulada) -->
+            <!-- Barra de Filtros -->
             <div class="d-flex justify-content-between align-items-center p-2 bg-secondary text-white bg-opacity-25">
                 <div class="d-flex align-items-center">
                     <span class="me-2">Exibir</span>
@@ -40,29 +40,35 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <!-- Botão de Adicionar Novo -->
-                                <tr style="background-color: rgba(0,0,0,0.05);">
-                                    <td>
-                                        <!-- Trocamos o '#' por '{% url 'novo_provedor' %}' -->
-                                        <a href="{% url 'novo_provedor' %}" class="btn btn-sm btn-primary py-0 px-2 shadow-sm">
-                                            <i class="bi bi-plus-lg"></i>
-                                        </a>
-                                    </td>
-                                    <td colspan="4"></td>
-                                </tr>
+                        <!-- Botão de Adicionar Novo - CORRIGIDO para 'cadastrar_provedor' -->
+                        <tr style="background-color: rgba(0,0,0,0.05);">
+                            <td>
+                                <a href="{% url 'cadastrar_provedor' %}" class="btn btn-sm btn-primary py-0 px-2 shadow-sm">
+                                    <i class="bi bi-plus-lg"></i>
+                                </a>
+                            </td>
+                            <td colspan="4"></td>
+                        </tr>
 
                         {% for p in provedores %}
                         <tr>
                             <td>
                                 <div class="btn-group gap-1">
-                                    <button class="btn btn-sm btn-outline-success p-1 border-2" title="Visualizar"><i class="bi bi-eye"></i></button>
+                                    <!-- Link de Visualização -->
+                                    <a href="{% url 'editar_provedor' p.id %}" class="btn btn-sm btn-outline-success p-1 border-2" title="Visualizar"><i class="bi bi-eye"></i></a>
+                                    
+                                    <!-- Link de Edição -->
                                     <a href="{% url 'editar_provedor' p.id %}" class="btn btn-sm btn-outline-info p-1 border-2 text-dark" title="Editar"><i class="bi bi-pencil-square"></i></a>
-                                    <button class="btn btn-sm btn-outline-danger p-1 border-2" title="Excluir"><i class="bi bi-trash"></i></button>
+                                    
+                                    <!-- Link de Exclusão - IMPORTANTE: Certifique-se de ter a rota 'excluir_provedor' no urls.py -->
+                                    <button class="btn btn-sm btn-outline-danger p-1 border-2" title="Excluir" onclick="if(confirm('Deseja realmente excluir este provedor?')) { window.location.href='/provedores/excluir/{{ p.id }}/'; }">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
                                 </div>
                             </td>
-                            <td>{{ p.codigo|default:"---" }}</td>
+                            <td>{{ p.id|default:"---" }}</td>
                             <td class="text-uppercase">{{ p.nome }}</td>
-                            <td>{{ p.data_cadastro|date:"d/m/Y H:i:s" }}</td>
+                            <td>{{ p.data_cadastro|date:"d/m/Y H:i" }}</td>
                             <td>{{ p.ativo|yesno:"S,N" }}</td>
                         </tr>
                         {% empty %}
@@ -84,9 +90,8 @@
     </div>
 </div>
 
-<!-- Estilo Adicional para Refinar as Cores -->
 <style>
-    body { background-color: #d1d596 !important; }
+    body { background-color: #0c032c !important; }
     .table th { border-bottom: 2px solid #7a824b !important; }
     .table td { border-bottom: 1px solid rgba(0,0,0,0.1); vertical-align: middle; }
     .btn-outline-success:hover { background-color: #198754; color: white; }

@@ -1,18 +1,62 @@
 import csv
 import io
 import unicodedata
-from django.shortcuts import render, get_object_or_404, redirect
+from django.shortcuts import render, get_object_or_404, redirect # Certifique-se de que get_object_or_404 está aqui
 from django.contrib import messages
 from django.db.models import Q
 from .models import Provedor, Contato, CidadeAtendida 
 from django.http import HttpResponse
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.models import User
+from django.contrib.auth.forms import UserCreationForm, SetPasswordForm
 
 # --- GESTÃO DE ACESSO (ADMIN) ---
 
 def e_admin(user):
     return user.is_superuser
+
+# Gestão DE USUÁRIOS
+@user_passes_test(e_admin)
+def gestao_usuarios(request):
+    usuarios = User.objects.all()
+    return render(request, 'registration/gestao_usuarios.html', {'usuarios': usuarios})
+
+@user_passes_test(e_admin)
+def criar_usuario(request):
+    if request.method == 'POST':
+        form = UserCreationForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Novo usuário criado com sucesso!")
+            return redirect('gestao_usuarios')
+    else:
+        form = UserCreationForm()
+    return render(request, 'registration/usuario_form.html', {'form': form, 'titulo': 'Novo Usuário'})
+
+@user_passes_test(e_admin)
+def alterar_senha(request, user_id):
+    # CORREÇÃO: Certificando que o usuário seja buscado corretamente
+    usuario = get_object_or_404(User, id=user_id)
+    if request.method == 'POST':
+        form = SetPasswordForm(usuario, request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f"Senha de {usuario.username} alterada com sucesso!")
+            return redirect('gestao_usuarios')
+    else:
+        form = SetPasswordForm(usuario)
+    return render(request, 'registration/usuario_form.html', {'form': form, 'titulo': 'Alterar Senha'})
+
+@user_passes_test(e_admin)
+def excluir_usuario(request, user_id):
+    usuario = get_object_or_404(User, id=user_id)
+    # Impede que o usuário logado exclua a si mesmo
+    if usuario.username != request.user.username:
+        usuario.delete()
+        messages.success(request, "Usuário removido com sucesso.")
+    else:
+        messages.error(request, "Você não pode excluir seu próprio usuário.")
+    return redirect('gestao_usuarios')
 
 # Funções de normalização mantidas para uso futuro ou consistência
 def normalizar_texto(texto):
@@ -145,30 +189,40 @@ def editar_provedor(request, pk=None):
     provedor = get_object_or_404(Provedor, pk=pk) if pk else None
 
     if request.method == "POST":
-        # Simplificação da captura de booleanos
+        # 1. Captura o CNPJ e trata como None se estiver vazio para evitar erro de duplicata no MySQL
+        raw_cnpj = request.POST.get('cnpj', '').strip()
+        cnpj_final = raw_cnpj if raw_cnpj else None 
+
+        # 2. Validação de duplicidade apenas para novos registros com CNPJ preenchido
+        if not pk and cnpj_final:
+            if Provedor.objects.filter(cnpj=cnpj_final).exists():
+                messages.error(request, "CNPJ já cadastrado!")
+                return render(request, 'providers/cadastro_edit.html', {'provedor': provedor})
+
+        # 3. INICIALIZAÇÃO DA VARIÁVEL DADOS (Resolve o erro da imagem image_d920e3.png)
         campos_bool = [
             'ativo', 'fibra', 'radio', 'link_dedicado', 
             'link_banda_larga', 'zona_rural', 'parceiro_bst'
         ]
+        # Cria o dicionário já verificando os checkboxes
         dados = {campo: request.POST.get(campo) == 'on' for campo in campos_bool}
+
+        # 4. Atualiza o dicionário com os campos de texto
         dados.update({
             'nome': request.POST.get('nome'),
             'razao_social': request.POST.get('razao_social'),
-            'cnpj': request.POST.get('cnpj'),
+            'cnpj': cnpj_final,
             'observacao': request.POST.get('observacao'),
         })
-
-        if not pk and Provedor.objects.filter(cnpj=dados['cnpj']).exists():
-            messages.error(request, "CNPJ já cadastrado!")
-            return render(request, 'providers/cadastro_edit.html', {'provedor': provedor})
-
+        
+        # 5. Salva ou Atualiza
         if provedor:
             for attr, value in dados.items():
                 setattr(provedor, attr, value)
             provedor.save()
             messages.success(request, "Atualizado com sucesso!")
         else:
-            provedor = Provedor.objects.create(**dados)
+            Provedor.objects.create(**dados)
             messages.success(request, "Cadastrado com sucesso!")
         
         return redirect('lista_provedores')

@@ -1,0 +1,94 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <!-- Card com estilo Dark para combinar com o Sistema_EP -->
+            <div class="card bg-dark text-white shadow-lg border-secondary">
+                <div class="card-header border-secondary bg-transparent py-3">
+                    <h4 class="mb-0 text-center">
+                        <i class="bi bi-person-gear me-2"></i>{{ titulo }}
+                    </h4>
+                </div>
+                <div class="card-body p-4">
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+                        
+                        {% for field in form %}
+                            <div class="mb-3">
+                                <label class="form-label fw-bold text-info">{{ field.label }}</label>
+                                
+                                <!-- Renderiza o campo com suporte a erros e ajuda -->
+                                <div class="django-field">
+                                    {{ field }}
+                                </div>
+
+                                {% if field.help_text %}
+                                    <div class="form-text text-muted small mt-1">
+                                        {{ field.help_text|safe }}
+                                    </div>
+                                {% endif %}
+
+                                {% if field.errors %}
+                                    {% for error in field.errors %}
+                                        <div class="text-danger small mt-1">
+                                            <strong>* {{ error }}</strong>
+                                        </div>
+                                    {% endfor %}
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+
+                        <div class="d-grid gap-2 mt-4">
+                            <button type="submit" class="btn btn-success btn-lg">
+                                <i class="bi bi-check-circle me-2"></i>Confirmar
+                            </button>
+                            <a href="{% url 'gestao_usuarios' %}" class="btn btn-outline-light">
+                                Cancelar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Estilização dos inputs gerados automaticamente pelo Django (forms.py) */
+    .django-field input, 
+    .django-field select, 
+    .django-field textarea {
+        display: block;
+        width: 100%;
+        padding: 0.375rem 0.75rem;
+        font-size: 1rem;
+        font-weight: 400;
+        line-height: 1.5;
+        color: #fff !important;
+        background-color: #2b3035 !important;
+        background-clip: padding-box;
+        border: 1px solid #495057 !important;
+        border-radius: 0.375rem;
+        transition: border-color .15s ease-in-out, box-shadow .15s ease-in-out;
+    }
+
+    .django-field input:focus {
+        border-color: #0dcaf0 !important;
+        outline: 0;
+        box-shadow: 0 0 0 0.25rem rgba(13, 202, 240, 0.25);
+    }
+
+    /* Ajuste para listas de requisitos de senha que o Django gera */
+    .form-text ul {
+        padding-left: 1.2rem;
+        margin-top: 5px;
+        color: #adb5bd;
+    }
+    
+    .form-text li {
+        font-size: 0.75rem;
+    }
+</style>
+{% endblock %}

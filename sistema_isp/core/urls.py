@@ -48,4 +48,8 @@ urlpatterns = [
     path('usuarios/novo/', providers_views.criar_usuario, name='criar_usuario'),
     path('usuarios/excluir/<int:user_id>/', providers_views.excluir_usuario, name='excluir_usuario'),
     path('usuarios/senha/<int:user_id>/', providers_views.alterar_senha, name='alterar_senha'),
+    
+    #import DB
+    # Dentro do seu urlpatterns no core/urls.py:
+    #path('importar-massa-agora/', providers_views.script_importar_tudo, name='importar_massa_agora'),
 ]

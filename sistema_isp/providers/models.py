@@ -6,7 +6,7 @@ class Provedor(models.Model):
     codigo = models.CharField(max_length=50, unique=True, null=True, blank=True)
     nome = models.CharField(max_length=255)
     razao_social = models.CharField(max_length=255, null=True, blank=True)
-    cnpj = models.CharField(max_length=20, unique=True, null=True, blank=True) # Adicionado unique=True para evitar duplicidade
+    cnpj = models.CharField(max_length=18, unique=True, null=True, blank=True)
     data_cadastro = models.DateTimeField(auto_now_add=True)
     ativo = models.BooleanField(default=True)
     

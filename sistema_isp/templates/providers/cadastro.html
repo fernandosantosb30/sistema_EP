@@ -2,34 +2,20 @@
 
 {% block content %}
 <div class="container-fluid px-4 py-3">
-    <!-- Botão Voltar Superior -->
-    <div class="mb-3">
+    <div class="d-flex justify-content-between align-items-center mb-3">
         <a href="{% url 'home' %}" class="btn btn-info text-white fw-bold shadow-sm" style="background-color: #17a2b8; border: none;">
             Voltar
         </a>
+        <a href="{% url 'cadastrar_provedor' %}" class="btn btn-success fw-bold shadow-sm">
+            <i class="bi bi-plus-lg"></i> Novo Provedor
+        </a>
     </div>
 
-    <!-- Container da Tabela -->
     <div class="card shadow-sm border-0" style="background-color: #767e99;">
-        <div class="card-body p-0">
-            <!-- Barra de Filtros -->
-            <div class="d-flex justify-content-between align-items-center p-2 bg-secondary text-white bg-opacity-25">
-                <div class="d-flex align-items-center">
-                    <span class="me-2">Exibir</span>
-                    <select class="form-select form-select-sm d-inline-block w-auto bg-dark text-white border-0">
-                        <option>10</option>
-                    </select>
-                    <span class="ms-2">resultados por página</span>
-                </div>
-                <div class="d-flex align-items-center">
-                    <span class="me-2">Pesquisar</span>
-                    <input type="text" class="form-control form-control-sm bg-dark text-white border-0" placeholder="Buscar registros">
-                </div>
-            </div>
-
-            <!-- Tabela -->
+        <div class="card-body p-3">
+            
             <div class="table-responsive">
-                <table class="table table-hover mb-0">
+                <table id="tabela-provedores" class="table table-hover mb-0">
                     <thead class="table-secondary text-uppercase small" style="background-color: #3b2183 !important; color: white;">
                         <tr>
                             <th width="120">Ações</th>
@@ -40,27 +26,12 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <!-- Botão de Adicionar Novo - CORRIGIDO para 'cadastrar_provedor' -->
-                        <tr style="background-color: rgba(0,0,0,0.05);">
-                            <td>
-                                <a href="{% url 'cadastrar_provedor' %}" class="btn btn-sm btn-primary py-0 px-2 shadow-sm">
-                                    <i class="bi bi-plus-lg"></i>
-                                </a>
-                            </td>
-                            <td colspan="4"></td>
-                        </tr>
-
                         {% for p in provedores %}
                         <tr>
                             <td>
                                 <div class="btn-group gap-1">
-                                    <!-- Link de Visualização -->
                                     <a href="{% url 'editar_provedor' p.id %}" class="btn btn-sm btn-outline-success p-1 border-2" title="Visualizar"><i class="bi bi-eye"></i></a>
-                                    
-                                    <!-- Link de Edição -->
                                     <a href="{% url 'editar_provedor' p.id %}" class="btn btn-sm btn-outline-info p-1 border-2 text-dark" title="Editar"><i class="bi bi-pencil-square"></i></a>
-                                    
-                                    <!-- Link de Exclusão - IMPORTANTE: Certifique-se de ter a rota 'excluir_provedor' no urls.py -->
                                     <button class="btn btn-sm btn-outline-danger p-1 border-2" title="Excluir" onclick="if(confirm('Deseja realmente excluir este provedor?')) { window.location.href='/provedores/excluir/{{ p.id }}/'; }">
                                         <i class="bi bi-trash"></i>
                                     </button>
@@ -73,7 +44,11 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="5" class="text-center py-4">Nenhum registro encontrado.</td>
+                            <td></td>
+                            <td></td>
+                            <td class="text-center py-4 text-white fw-bold">Nenhum registro encontrado.</td>
+                            <td></td>
+                            <td></td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -82,7 +57,6 @@
         </div>
     </div>
 
-    <!-- Botão Voltar Inferior -->
     <div class="mt-3">
         <a href="{% url 'home' %}" class="btn btn-info text-white fw-bold shadow-sm" style="background-color: #17a2b8; border: none;">
             Voltar
@@ -90,10 +64,57 @@
     </div>
 </div>
 
+<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+
+<script>
+    $(document).ready(function() {
+        // Destrói qualquer instância antiga para evitar conflito de cache do navegador
+        if ($.fn.DataTable.isDataTable('#tabela-provedores')) {
+            $('#tabela-provedores').DataTable().destroy();
+        }
+
+        // Inicializa o DataTables forçando o limite de 10 por página
+        $('#tabela-provedores').DataTable({
+            "pageLength": 10,
+            "lengthMenu": [10, 25, 50, 100],
+            "ordering": true,
+            "paging": true, // Força a paginação ativa
+            "dom": '<"d-flex justify-content-between align-items-center mb-3 text-white"l f>rt<"d-flex justify-content-between align-items-center mt-3 text-white"i p>',
+            "language": {
+                "sLengthMenu":    "Exibir _MENU_ resultados por página",
+                "sZeroRecords":   "Nenhum registro encontrado",
+                "sEmptyTable":    "Nenhum dado disponível nesta tabela",
+                "sInfo":          "Mostrando de _START_ até _END_ de um total de _TOTAL_ provedores",
+                "sInfoEmpty":     "Mostrando 0 até 0 de 0 provedores",
+                "sInfoFiltered":  "(filtrado de _MAX_ registros)",
+                "sSearch":        "Pesquisar:",
+                "oPaginate": {
+                    "sPrevious": "Anterior",
+                    "sNext":     "Próxima"
+                }
+            }
+        });
+
+        // Estilização customizada dos inputs do DataTables para o tema escuro
+        $('.dataTables_length select').addClass('bg-dark text-white border-0 p-1 rounded fw-bold mx-1');
+        $('.dataTables_filter input').addClass('form-control form-control-sm bg-dark text-white border-0 d-inline-block w-auto ms-2').attr("placeholder", "Buscar registros...");
+    });
+</script>
+
 <style>
     body { background-color: #0c032c !important; }
-    .table th { border-bottom: 2px solid #7a824b !important; }
-    .table td { border-bottom: 1px solid rgba(0,0,0,0.1); vertical-align: middle; }
+    .table th { border-bottom: 2px solid #7a824b !important; color: white !important; }
+    .table td { border-bottom: 1px solid rgba(255,255,255,0.1); vertical-align: middle; color: white !important; }
+    .table-hover tbody tr:hover { background-color: rgba(255,255,255,0.07) !important; }
     .btn-outline-success:hover { background-color: #198754; color: white; }
+    
+    /* Customização dos botões da paginação do DataTables */
+    .page-link { background-color: #3b2183 !important; border: none !important; color: white !important; margin: 0 2px; border-radius: 4px; }
+    .page-item.active .page-link { background-color: #17a2b8 !important; font-weight: bold; }
+    .page-item.disabled .page-link { background-color: rgba(59, 33, 131, 0.3) !important; color: rgba(255,255,255,0.4) !important; }
 </style>
 {% endblock %}

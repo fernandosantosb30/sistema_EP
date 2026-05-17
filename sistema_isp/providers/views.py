@@ -1,6 +1,8 @@
 import csv
 import io
 import unicodedata
+import os
+from django.conf import settings
 from django.shortcuts import render, get_object_or_404, redirect # Certifique-se de que get_object_or_404 está aqui
 from django.contrib import messages
 from django.db.models import Q
@@ -9,6 +11,7 @@ from django.http import HttpResponse
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm, SetPasswordForm
+from django.core.paginator import Paginator
 
 # --- GESTÃO DE ACESSO (ADMIN) ---
 
@@ -87,6 +90,7 @@ def home_view(request):
 
 @login_required
 def lista_provedores(request):
+    # Buscamos todos os provedores para que o DataTables do JavaScript consiga fazer a paginação nativa
     provedores = Provedor.objects.all().order_by('-data_cadastro')
     return render(request, 'providers/cadastro.html', {'provedores': provedores})
 
@@ -319,3 +323,4 @@ def excluir_cidade(request, cidade_id):
     id_p = cidade.provedor.id
     cidade.delete()
     return redirect('editar_provedor', pk=id_p)
+

@@ -3,7 +3,7 @@ import io
 import unicodedata
 import os
 from django.conf import settings
-from django.shortcuts import render, get_object_or_404, redirect # Certifique-se de que get_object_or_404 está aqui
+from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from django.db.models import Q
 from .models import Provedor, Contato, CidadeAtendida 
@@ -11,7 +11,6 @@ from django.http import HttpResponse
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm, SetPasswordForm
-from django.core.paginator import Paginator
 
 # --- GESTÃO DE ACESSO (ADMIN) ---
 
@@ -38,7 +37,6 @@ def criar_usuario(request):
 
 @user_passes_test(e_admin)
 def alterar_senha(request, user_id):
-    # CORREÇÃO: Certificando que o usuário seja buscado corretamente
     usuario = get_object_or_404(User, id=user_id)
     if request.method == 'POST':
         form = SetPasswordForm(usuario, request.POST)
@@ -67,19 +65,6 @@ def normalizar_texto(texto):
     nfkd_form = unicodedata.normalize('NFKD', texto)
     texto_sem_acentos = "".join([c for c in nfkd_form if not unicodedata.combining(c)])
     return texto_sem_acentos.lower().replace('-', ' ').strip()
-
-@user_passes_test(e_admin)
-def gestao_usuarios(request):
-    usuarios = User.objects.all()
-    return render(request, 'registration/gestao_usuarios.html', {'usuarios': usuarios})
-
-@user_passes_test(e_admin)
-def excluir_usuario(request, user_id):
-    usuario = get_object_or_404(User, id=user_id)
-    if usuario.username != request.user.username:
-        usuario.delete()
-        messages.success(request, "Usuário removido com sucesso.")
-    return redirect('gestao_usuarios')
 
 
 # --- NAVEGAÇÃO PRINCIPAL ---
@@ -127,7 +112,7 @@ def consulta_provedores(request):
 @login_required
 def importar_e_mapear_projeto(request):
     """
-    CORREÇÃO: Mapeia cidades da planilha aceitando qualquer escrita e 
+    Mapeia cidades da planilha aceitando qualquer escrita e 
     retornando todos os provedores correspondentes do banco.
     """
     if request.method == 'POST' and request.FILES.get('arquivo_cidades'):
@@ -136,12 +121,10 @@ def importar_e_mapear_projeto(request):
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename="mapeamento_fornecedores.csv"'
         
-        # BOM para Excel reconhecer acentuação em UTF-8 ou use latin-1
         writer = csv.writer(response, delimiter=';')
         writer.writerow(['CIDADE PESQUISADA', 'UF', 'FORNECEDOR NO SISTEMA', 'TECNOLOGIAS', 'CONTATO'])
 
         try:
-            # Tenta latin-1 (padrão MS-DOS/Excel) para não quebrar com acentos
             conteudo = arquivo.read().decode('latin-1').splitlines()
             reader = csv.reader(conteudo, delimiter=';')
             next(reader, None) 
@@ -149,11 +132,9 @@ def importar_e_mapear_projeto(request):
             for linha in reader:
                 if not linha or len(linha) < 1: continue
                 
-                # Aceita qualquer escrita: limpa espaços e usa busca parcial (icontains)
                 cidade_planilha = linha[0].strip()
                 uf_planilha = linha[1].strip().upper() if len(linha) > 1 else None
 
-                # Busca no banco ignorando acentos/case (dependendo da collation do banco)
                 filtros = Q(cidades__nome__icontains=cidade_planilha)
                 if uf_planilha:
                     filtros &= Q(cidades__uf__iexact=uf_planilha)
@@ -193,25 +174,20 @@ def editar_provedor(request, pk=None):
     provedor = get_object_or_404(Provedor, pk=pk) if pk else None
 
     if request.method == "POST":
-        # 1. Captura o CNPJ e trata como None se estiver vazio para evitar erro de duplicata no MySQL
         raw_cnpj = request.POST.get('cnpj', '').strip()
         cnpj_final = raw_cnpj if raw_cnpj else None 
 
-        # 2. Validação de duplicidade apenas para novos registros com CNPJ preenchido
         if not pk and cnpj_final:
             if Provedor.objects.filter(cnpj=cnpj_final).exists():
                 messages.error(request, "CNPJ já cadastrado!")
                 return render(request, 'providers/cadastro_edit.html', {'provedor': provedor})
 
-        # 3. INICIALIZAÇÃO DA VARIÁVEL DADOS (Resolve o erro da imagem image_d920e3.png)
         campos_bool = [
             'ativo', 'fibra', 'radio', 'link_dedicado', 
             'link_banda_larga', 'zona_rural', 'parceiro_bst'
         ]
-        # Cria o dicionário já verificando os checkboxes
         dados = {campo: request.POST.get(campo) == 'on' for campo in campos_bool}
 
-        # 4. Atualiza o dicionário com os campos de texto
         dados.update({
             'nome': request.POST.get('nome'),
             'razao_social': request.POST.get('razao_social'),
@@ -219,7 +195,6 @@ def editar_provedor(request, pk=None):
             'observacao': request.POST.get('observacao'),
         })
         
-        # 5. Salva ou Atualiza
         if provedor:
             for attr, value in dados.items():
                 setattr(provedor, attr, value)
@@ -324,3 +299,70 @@ def excluir_cidade(request, cidade_id):
     cidade.delete()
     return redirect('editar_provedor', pk=id_p)
 
+
+# --- SCRIPT DE IMPORTAÇÃO EM MASSA (AJUSTADO E SEGURO) ---
+
+@user_passes_test(e_admin)
+def script_importar_tudo(request):
+    # Procura o arquivo na pasta raiz do projeto de forma dinâmica e precisa
+    caminho_arquivo = os.path.join(settings.BASE_DIR, 'provedores.csv')
+    
+    # Se não achar na raiz, tenta na pasta anterior por compatibilidade
+    if not os.path.exists(caminho_arquivo):
+        caminho_arquivo = os.path.join(settings.BASE_DIR, '..', 'provedores.csv')
+        
+    try:
+        with open(caminho_arquivo, mode='r', encoding='latin-1') as csvfile:
+            reader = csv.DictReader(csvfile, delimiter=';')
+            
+            provedores_criados = {}
+            contatos_para_criar = []
+            
+            for row in reader:
+                # Trata a possibilidade de BOM do excel (\ufeffPROVEDOR)
+                nome_provedor = row.get('PROVEDOR', row.get('\ufeffPROVEDOR', '')).strip()
+                
+                if not nome_provedor:
+                    continue
+                
+                if nome_provedor not in provedores_criados:
+                    provedor_obj, criado = Provedor.objects.get_or_create(
+                        nome=nome_provedor,
+                        defaults={
+                            'razao_social': nome_provedor,
+                            'ativo': True,
+                            'fibra': True,
+                            'radio': False,
+                            'link_dedicado': False,
+                            'link_banda_larga': False,
+                            'zona_rural': False,
+                            'parceiro_bst': False
+                        }
+                    )
+                    provedores_criados[nome_provedor] = provedor_obj
+                
+                provedor_atual = provedores_criados[nome_provedor]
+                
+                nome_contato = row.get('CONTATO', '').strip()
+                if nome_contato:
+                    contatos_para_criar.append(
+                        Contato(
+                            provedor=provedor_atual,
+                            nome=nome_contato,
+                            cargo=row.get('CARGO', '').strip(),
+                            telefone=row.get('FONE', '').strip(),
+                            email=row.get('EMAIL', '').strip()
+                        )
+                    )
+            
+            if contatos_para_criar:
+                Contato.objects.bulk_create(contatos_para_criar)
+                
+            messages.success(request, f"Sucesso! {len(provedores_criados)} provedores e {len(contatos_para_criar)} contatos foram importados.")
+            
+    except FileNotFoundError:
+        messages.error(request, f"Arquivo 'provedores.csv' não encontrado. Certifique-se de colocá-lo na pasta: {settings.BASE_DIR}")
+    except Exception as e:
+        messages.error(request, f"Erro ao processar o CSV: {e}")
+        
+    return redirect('lista_provedores')

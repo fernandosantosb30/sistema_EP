@@ -148,12 +148,28 @@
                 <li class="nav-item"><a class="nav-link" href="{% url 'consulta_provedores' %}">Consulta Mapeamento</a></li>
                 
                 {% if user.is_superuser %}
-                    <li class="nav-item">
-                        <a class="nav-link text-warning" href="{% url 'gestao_usuarios' %}">Usuários</a>
-                    </li>
-                {% endif %}
-                
-                <li class="nav-item"><a class="nav-link text-danger" href="{% url 'logout' %}">Sair</a></li>
+                <li class="nav-item">
+                    <a class="nav-link text-warning" href="{% url 'gestao_usuarios' %}">Usuários</a>
+                </li>
+            {% endif %}
+
+            <li class="nav-item">
+                <a class="nav-link text-danger" href="#" onclick="event.preventDefault(); confirmarLogout();">Sair</a>
+            </li>
+
+            <form id="logout-form" action="{% url 'logout' %}" method="POST" style="display: none;">
+                {% csrf_token %}
+            </form>
+
+            {% block extra_scripts %}
+            <script>
+                function confirmarLogout() {
+                    if (confirm("Realmente deseja sair do sistema?")) {
+                        document.getElementById('logout-form').submit();
+                    }
+                }
+            </script>
+            {% endblock %}
             </ul>
         </div>
     </div>

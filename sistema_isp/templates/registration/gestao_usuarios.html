@@ -26,11 +26,14 @@
                     <td>{% if u.is_active %}<span class="text-success">Ativo</span>{% else %}<span class="text-danger">Inativo</span>{% endif %}</td>
                     <td>{{ u.last_login|date:"d/m/Y H:i"|default:"Nunca" }}</td>
                     <td class="text-center">
-                        <a href="/admin/auth/user/{{ u.id }}/change/" class="btn btn-sm btn-outline-info" title="Alterar Senha/Dados"><i class="bi bi-pencil"></i></a>
-                        {% if u.id != user.id %}
-                        <a href="{% url 'excluir_usuario' u.id %}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Excluir este funcionário?')"><i class="bi bi-trash"></i></a>
-                        {% endif %}
-                    </td>
+                    {% if u.id %}
+                        <a href="{% url 'excluir_usuario' u.id %}" class="btn btn-sm btn-danger" onclick="return confirm('Tem certeza?')">
+                            <i class="bi bi-trash"></i>
+                        </a>
+                    {% else %}
+                        <button class="btn btn-sm btn-secondary" disabled>Erro de ID</button>
+                    {% endif %}
+                </td>
                 </tr>
                 {% endfor %}
             </tbody>

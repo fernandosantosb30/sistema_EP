@@ -12,14 +12,12 @@
 
 <div class="container-fluid px-4 py-3">
     <div class="mb-3">
-        <!-- CORREÇÃO: URL ajustada para a listagem principal -->
         <a href="{% url 'lista_provedores' %}" class="btn btn-info text-white fw-bold shadow-sm">Voltar</a>
     </div>
 
     <form method="post">
         {% csrf_token %}
         
-        <!-- Bloco Identificação -->
         <div class="card-custom mb-4 p-3 border rounded shadow-sm" style="background-color: rgba(255,255,255,0.05);">
             <div class="header-section mb-3 fw-bold text-white"><i class="bi bi-person"></i> Identificação</div>
             <div class="row g-3">
@@ -49,7 +47,6 @@
             </div>
         </div>
 
-        <!-- Bloco de Meios, Atuação e Parceiros -->
         <div class="row g-3">
             <div class="col-md-4">
                 <div class="card-custom p-3 border rounded h-100" style="background-color: rgba(255,255,255,0.05);">
@@ -97,13 +94,11 @@
             </div>
         </div>
 
-        <!-- Bloco Observação -->
         <div class="card-custom mt-4 p-3 border rounded" style="background-color: rgba(255,255,255,0.05);">
             <div class="header-section mb-2 fw-bold text-white"><i class="bi bi-info-circle"></i> Observação</div>
             <textarea name="observacao" class="form-control bg-dark text-white border-secondary" rows="2">{{ provedor.observacao|default:'' }}</textarea>
         </div>
         
-        <!-- Tabelas de Cidades e Contatos -->
         <div class="row mt-4">
             <div class="col-md-6">
                 <div class="card-custom p-3 border rounded shadow-sm h-100" style="background-color: rgba(255,255,255,0.05);">
@@ -111,12 +106,14 @@
                         <div class="header-section text-white fw-bold">Cidades <i class="bi bi-geo-alt"></i></div>
                         <div class="d-flex gap-2">
                             {% if provedor.id %}
-                                <a href="{% url 'excluir_todas_cidades' provedor.id %}" 
-                                   class="btn btn-sm btn-outline-danger py-0 px-2 shadow-sm" 
-                                   onclick="return confirm('ATENÇÃO: Você está prestes a apagar TODAS as cidades deste provedor. Confirmar?')"
-                                   title="Limpar todas as cidades">
-                                    <i class="bi bi-trash3-fill"></i>
-                                </a>
+                                {% if user.is_superuser %}
+                                    <a href="{% url 'excluir_todas_cidades' provedor.id %}" 
+                                       class="btn btn-sm btn-outline-danger py-0 px-2 shadow-sm" 
+                                       onclick="return confirm('ATENÇÃO: Você está prestes a apagar TODAS as cidades deste provedor. Confirmar?')"
+                                       title="Limpar todas as cidades">
+                                        <i class="bi bi-trash3-fill"></i>
+                                    </a>
+                                {% endif %}
                                 
                                 <button type="button" class="btn btn-sm btn-outline-success py-0 px-2" data-bs-toggle="modal" data-bs-target="#modalImportarCSV" title="Importar CSV">
                                     <i class="bi bi-file-earmark-spreadsheet"></i> CSV
@@ -143,8 +140,11 @@
                                     <td>{{ cidade.nome }}</td>
                                     <td>{{ cidade.uf }}</td>
                                     <td class="text-center">
-                                        <!-- CORREÇÃO: URL de exclusão com ID da cidade -->
-                                        <a href="{% url 'excluir_cidade' cidade.id %}" class="text-danger" onclick="return confirm('Excluir esta cidade?')"><i class="bi bi-trash"></i></a>
+                                        {% if user.is_superuser %}
+                                            <a href="{% url 'excluir_cidade' cidade.id %}" class="text-danger" onclick="return confirm('Excluir esta cidade?')"><i class="bi bi-trash"></i></a>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
                                     </td>
                                 </tr>
                                 {% empty %}
@@ -174,7 +174,7 @@
                                 <th>Nome</th>
                                 <th>Cargo</th>
                                 <th>Telefone</th>
-                                <th class="text-center">E-mail</th>
+                                <th class="text-center">Ações</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -185,11 +185,12 @@
                                     <td>{{ contato.cargo|default:"-" }}</td>
                                     <td>{{ contato.telefone }}</td>
                                     <td class="text-center">
-                                        <!-- CORREÇÃO: URLs de edição e exclusão de contato -->
                                         <button type="button" class="btn btn-link text-info p-0 me-1" data-bs-toggle="modal" data-bs-target="#modalEditarContato{{ contato.id }}">
                                             <i class="bi bi-pencil-square"></i>
                                         </button>
-                                        <a href="{% url 'excluir_contato' contato.id %}" class="text-danger" onclick="return confirm('Excluir contato?')"><i class="bi bi-trash"></i></a>
+                                        {% if user.is_superuser %}
+                                            <a href="{% url 'excluir_contato' contato.id %}" class="text-danger" onclick="return confirm('Excluir contato?')"><i class="bi bi-trash"></i></a>
+                                        {% endif %}
                                     </td>
                                 </tr>
                                 {% empty %}
@@ -204,16 +205,12 @@
 
         <div class="mt-4 mb-5">
             <button type="submit" class="btn btn-primary px-4 shadow">Salvar Provedor</button>
-            <!-- CORREÇÃO: URL ajustada para a listagem principal -->
             <a href="{% url 'lista_provedores' %}" class="btn btn-info text-white px-4 ms-2">Cancelar</a>
         </div>
     </form>
 </div>
 
-<!-- MODAIS -->
-
 {% if provedor.id %}
-    <!-- Modal Adicionar Cidade -->
     <div class="modal fade" id="modalCidade" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content bg-dark text-white border-secondary">
@@ -242,7 +239,6 @@
         </div>
     </div>
 
-    <!-- Modal CSV -->
     <div class="modal fade" id="modalImportarCSV" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content bg-dark text-white border-secondary">
@@ -266,7 +262,6 @@
         </div>
     </div>
 
-    <!-- Modal Novo Contato -->
     <div class="modal fade" id="modalContato" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content bg-dark text-white border-secondary">

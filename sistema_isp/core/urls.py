@@ -38,18 +38,15 @@ urlpatterns = [
     path('provedores/<int:provedor_id>/cidades/limpar/', providers_views.excluir_todas_cidades, name='excluir_todas_cidades'),
     
     # Consultas e Mapeamento (Nome corrigido para o template)
-    path('importar-mapeamento/', providers_views.importar_cidades_csv, name='importar_mapeamento'),
+    path('importar-mapeamento/', providers_views.importar_e_mapear_projeto, name='importar_mapeamento'),
     path('consulta/', providers_views.consulta_provedores, name='consulta'), 
     path('consulta/mapeamento/', providers_views.consulta_provedores, name='consulta_provedores'), 
     path('provedores/importar-cidades/<int:provedor_id>/', providers_views.importar_cidades_csv, name='importar_cidades_csv'),
+    path('custo-medio/', providers_views.processar_custo_medio, name='processar_custo_medio'),
     
     # Gestão de Usuários (Centralizado)
     path('usuarios/', providers_views.gestao_usuarios, name='gestao_usuarios'),
     path('usuarios/novo/', providers_views.criar_usuario, name='criar_usuario'),
     path('usuarios/excluir/<int:user_id>/', providers_views.excluir_usuario, name='excluir_usuario'),
     path('usuarios/senha/<int:user_id>/', providers_views.alterar_senha, name='alterar_senha'),
-    
-    #import DB
-    # Dentro do seu urlpatterns no core/urls.py:
-    #path('importar-massa-agora/', providers_views.script_importar_tudo, name='importar_massa_agora'),
 ]

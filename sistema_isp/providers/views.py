@@ -208,7 +208,8 @@ def editar_provedor(request, pk=None):
 
     return render(request, 'providers/cadastro_edit.html', {'provedor': provedor})
 
-@login_required
+# CORREÇÃO: Apenas administradores podem excluir um provedor
+@user_passes_test(e_admin)
 def excluir_provedor(request, pk):
     get_object_or_404(Provedor, pk=pk).delete()
     messages.success(request, "Provedor removido.")
@@ -244,7 +245,8 @@ def editar_contato(request, contato_id):
     
     return render(request, 'providers/contato_edit.html', {'contato': contato})
 
-@login_required
+# CORREÇÃO: Apenas administradores podem excluir contatos
+@user_passes_test(e_admin)
 def excluir_contato(request, contato_id):
     contato = get_object_or_404(Contato, id=contato_id)
     id_p = contato.provedor.id
@@ -276,8 +278,8 @@ def importar_cidades_csv(request, provedor_id):
             cidades_criadas = 0
             for linha in reader:
                 if len(linha) >= 2:
-                    nome = linha[0].strip().title()
-                    uf = linha[1].strip().upper()
+                    nome = linha[0].strip().title()  # CORRIGIDO: de line para linha
+                    uf = linha[1].strip().upper()    # CORRIGIDO: de line para linha
                     CidadeAtendida.objects.get_or_create(provedor=provedor, nome=nome, uf=uf)
                     cidades_criadas += 1
             messages.success(request, f"{cidades_criadas} cidades processadas!")
@@ -286,13 +288,15 @@ def importar_cidades_csv(request, provedor_id):
             
     return redirect('editar_provedor', pk=provedor_id)
 
-@login_required
+# CORREÇÃO: Apenas administradores podem excluir todas as cidades
+@user_passes_test(e_admin)
 def excluir_todas_cidades(request, provedor_id):
     CidadeAtendida.objects.filter(provedor_id=provedor_id).delete()
     messages.warning(request, "Cidades removidas.")
     return redirect('editar_provedor', pk=provedor_id)
 
-@login_required
+# CORREÇÃO: Apenas administradores podem excluir uma cidade específica
+@user_passes_test(e_admin)
 def excluir_cidade(request, cidade_id):
     cidade = get_object_or_404(CidadeAtendida, id=cidade_id)
     id_p = cidade.provedor.id
@@ -300,14 +304,12 @@ def excluir_cidade(request, cidade_id):
     return redirect('editar_provedor', pk=id_p)
 
 
-# --- SCRIPT DE IMPORTAÇÃO EM MASSA (AJUSTADO E SEGURO) ---
+# --- SCRIPT DE IMPORTAÇÃO EM MASSA ---
 
 @user_passes_test(e_admin)
 def script_importar_tudo(request):
-    # Procura o arquivo na pasta raiz do projeto de forma dinâmica e precisa
     caminho_arquivo = os.path.join(settings.BASE_DIR, 'provedores.csv')
     
-    # Se não achar na raiz, tenta na pasta anterior por compatibilidade
     if not os.path.exists(caminho_arquivo):
         caminho_arquivo = os.path.join(settings.BASE_DIR, '..', 'provedores.csv')
         
@@ -319,7 +321,6 @@ def script_importar_tudo(request):
             contatos_para_criar = []
             
             for row in reader:
-                # Trata a possibilidade de BOM do excel (\ufeffPROVEDOR)
                 nome_provedor = row.get('PROVEDOR', row.get('\ufeffPROVEDOR', '')).strip()
                 
                 if not nome_provedor:
@@ -365,4 +366,9 @@ def script_importar_tudo(request):
     except Exception as e:
         messages.error(request, f"Erro ao processar o CSV: {e}")
         
-    return redirect('lista_provedores')
+    return redirect('consulta_provedores')
+
+@login_required
+def processar_custo_medio(request):
+    # Por enquanto apenas renderiza o template. Depois você adiciona a lógica de cálculo.
+    return render(request, 'providers/custo_medio.html')

@@ -9,36 +9,28 @@
 </div>
 
 <div class="row g-4">
-    <!-- Card Provedores -->
-    <div class="col-md-6">
-        <a href="{% url 'cadastro' %}" class="card-menu bg-cadastro shadow text-decoration-none">
+    <div class="col-md-4">
+        <a href="{% url 'lista_provedores' %}" class="card-menu bg-cadastro shadow text-decoration-none">
             <i class="bi bi-broadcast icon-large"></i>
             <h3>Provedores</h3>
             <p>Cadastrar novos fornecedores no sistema</p>
         </a>
     </div>
 
-    <!-- Card Consulta -->
-    <div class="col-md-6">
+    <div class="col-md-4">
         <a href="{% url 'consulta_provedores' %}" class="card-menu bg-consulta shadow text-decoration-none">
             <i class="bi bi-search icon-large"></i>
             <h3>Consultar Cidades</h3>
             <p>Mapeamento de cidades/Área de cobertura</p>
         </a>
     </div>
-</div>
 
-<!-- REMOVA OU COMENTE ESTE BLOCO ABAIXO -->
-{% comment %}
-{% if user.is_superuser %}
-<div class="row mt-5 justify-content-center">
-    <div class="col-md-4 text-center">
-        <a href="{% url 'gestao_usuarios' %}" class="btn btn-outline-warning btn-lg w-100 shadow-sm p-3">
-            <i class="bi bi-people-fill"></i> Gerenciar Usuários
+    <div class="col-md-4">
+        <a href="{% url 'processar_custo_medio' %}" class="card-menu bg-custo shadow text-decoration-none">
+            <i class="bi bi-graph-up icon-large"></i>
+            <h3>Custo Médio</h3>
+            <p>Análise de custos e processamento de planilhas</p>
         </a>
     </div>
 </div>
-{% endif %}
-{% endcomment %}
-
 {% endblock %}

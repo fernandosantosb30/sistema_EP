@@ -32,9 +32,12 @@
                                 <div class="btn-group gap-1">
                                     <a href="{% url 'editar_provedor' p.id %}" class="btn btn-sm btn-outline-success p-1 border-2" title="Visualizar"><i class="bi bi-eye"></i></a>
                                     <a href="{% url 'editar_provedor' p.id %}" class="btn btn-sm btn-outline-info p-1 border-2 text-dark" title="Editar"><i class="bi bi-pencil-square"></i></a>
-                                    <button class="btn btn-sm btn-outline-danger p-1 border-2" title="Excluir" onclick="if(confirm('Deseja realmente excluir este provedor?')) { window.location.href='/provedores/excluir/{{ p.id }}/'; }">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
+                                    
+                                    {% if user.is_superuser %}
+                                        <button class="btn btn-sm btn-outline-danger p-1 border-2" title="Excluir" onclick="if(confirm('Deseja realmente excluir este provedor?')) { window.location.href='{% url 'excluir_provedor' p.id %}'; }">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    {% endif %}
                                 </div>
                             </td>
                             <td>{{ p.id|default:"---" }}</td>

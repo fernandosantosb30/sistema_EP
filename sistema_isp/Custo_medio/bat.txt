@@ -1,0 +1,5 @@
+CD Custo_medio
+CD backend
+CD app 
+.\venv\Scripts\activate
+python -m uvicorn main:app --reload

@@ -2,127 +2,113 @@ import io
 import os
 import sys
 import pandas as pd
+from sqlalchemy import create_engine, text
 from fastapi import FastAPI, Query, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse, RedirectResponse
+from fastapi.responses import StreamingResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import RedirectResponse
 
-# Adiciona a pasta atual ao PATH
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-
-from data_handler import (
-    carregar_dados_planilha, 
-    obter_opcoes_filtros, 
-    normalizar_texto, 
-    extrair_numero
-)
+# --- CONFIGURAÇÃO DE CAMINHOS CORRIGIDA ---
+## --- CONFIGURAÇÃO DE CAMINHOS ---
+BASE_DIR = r"C:\Users\luisf\OneDrive\Desktop\Sistema_EP\sistema_isp\Custo_medio"
+# A pasta onde estão o CSS e o JS (mantenha como está)
+STATIC_DIR = os.path.join(BASE_DIR, "backend", "static")
+# A pasta onde está o seu HTML (se for a mesma, tudo bem, mas não monte a pasta inteira)
+HTML_DIR = os.path.join(BASE_DIR, "backend", "static")
 
 app = FastAPI(title="API Custo Médio - Ep Conexões")
 
-# --- CARREGAMENTO ÚNICO EM MEMÓRIA ---
-try:
-    DADOS_FIXOS = carregar_dados_planilha()
-    OPCOES_FILTROS = obter_opcoes_filtros(DADOS_FIXOS)
-    print("✅ Planilha carregada com sucesso!")
-except Exception as e:
-    print(f"❌ Erro na inicialização: {e}")
-    DADOS_FIXOS = None
-    OPCOES_FILTROS = {"servicos": [], "interfaces": [], "ips": []}
+@app.get("/teste")
+async def teste():
+    return {"status": "A rota funciona!"}
 
-# CONFIGURAÇÃO DE CORS - CRUCIAL PARA O DJANGO ACESSAR O FASTAPI
+# --- CONEXÃO COM BANCO DE DADOS ---
+DATABASE_URL = "postgresql://postgres:GGwaopq%401@localhost:5432/sistema_isp_db"
+engine = create_engine(DATABASE_URL)
+
+def carregar_dados_do_banco():
+    try:
+        # Primeiro, verificamos se a tabela existe
+        check_query = "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'providers_contratocusto');"
+        with engine.connect() as conn:
+            exists = conn.execute(text(check_query)).scalar()
+        
+        if not exists:
+            print("❌ ERRO CRÍTICO: A tabela 'providers_contratocusto' não existe no banco!")
+            return None
+            
+        query = "SELECT cidade, uf, servico, ip_fixo, valor_mensal, capacidade_mb, vigencia_meses, interface FROM public.providers_contratocusto"
+        return pd.read_sql(query, engine)
+    except Exception as e:
+        print(f"❌ Erro ao conectar no banco: {e}")
+        return None
+
+DADOS_FIXOS = carregar_dados_do_banco()
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# --- CORREÇÃO E MELHORIA NO MOUNT ---
-# Define o caminho de forma absoluta e segura
-base_dir = os.path.dirname(os.path.abspath(__file__))
-frontend_path = os.path.abspath(os.path.join(base_dir, "..", "..", "frontend"))
+# --- SERVIDOR DE FRONTEND ---
+# Montamos a pasta static (onde estão o index.html e a pasta CSS)
+if os.path.exists(STATIC_DIR):
+    # MUDE ISSO:
+    app.mount("/static", StaticFiles(directory=r"C:\Users\luisf\OneDrive\Desktop\Sistema_EP\sistema_isp\Custo_medio\backend\static"), name="static")
 
-# Verificação: O FastAPI lança um erro se o diretório não existir. 
-# Isso ajuda a debugar se o caminho está correto.
-if os.path.exists(frontend_path):
-    app.mount("/static", StaticFiles(directory=frontend_path, html=True), name="static")
-    print(f"✅ Pasta frontend montada em /static: {frontend_path}")
-else:
-    print(f"❌ Erro: Pasta frontend não encontrada em: {frontend_path}")
-    
 @app.get("/")
 async def root():
-    return RedirectResponse(url="/static/index.html")
+    file_path = os.path.join(HTML_DIR, "index.html")
+    return FileResponse(file_path)
 
-@app.get("/")
-def home():
-    # Isso evita o 404 e leva ao Swagger para debug rápido
-    return RedirectResponse(url="/docs")
+# ... (Mantenha o restante das suas rotas abaixo)
 
-@app.get("/filtros/opcoes")
-def get_opcoes():
-    return OPCOES_FILTROS
+# --- AJUSTE NAS ROTAS DE API ---
 
-@app.get("/contratos/custo-medio")
-def calcular_media(
-    cidade: str = Query(None),
-    uf: str = Query(None),
-    tipo_servico: str = Query(None),
-    interface: str = Query(None),
-    ip_fixo: str = Query(None),
-    velocidade: int = Query(None),
-    prazo: int = Query(None)
+@app.get("/api/custo-medio/")
+async def get_custo_medio(
+    cidade: str = None, uf: str = None, servico: str = None, 
+    interface: str = None, ip_fixo: str = None, capacidade: int = None, 
+    vigencia: int = None
 ):
-    if DADOS_FIXOS is None:
+    df = DADOS_FIXOS
+    if df is None or df.empty:
         return {"custo_medio": 0, "quantidade_contratos": 0, "tipo_resultado": "erro"}
 
-    mask = pd.Series(True, index=DADOS_FIXOS.index)
+    # Usando a lógica de máscara que você confirmou que funciona
+    mask = pd.Series(True, index=df.index)
     
-    if uf: mask &= (DADOS_FIXOS['uf'] == normalizar_texto(uf))
-    if cidade: mask &= (DADOS_FIXOS['cidade'] == normalizar_texto(cidade))
-    if tipo_servico: mask &= (DADOS_FIXOS['tipo_servico'] == normalizar_texto(tipo_servico))
-    if interface: mask &= (DADOS_FIXOS['interface'] == normalizar_texto(interface))
-    if ip_fixo: mask &= (DADOS_FIXOS['ip_fixo'] == normalizar_texto(ip_fixo))
-    if velocidade: mask &= (DADOS_FIXOS['velocidade'] == velocidade)
-    if prazo: mask &= (DADOS_FIXOS['prazo'] == prazo)
+    if uf: mask &= (df['uf'].str.upper() == uf.upper())
+    if cidade: mask &= (df['cidade'].str.contains(cidade, case=False, na=False))
+    if servico: mask &= (df['servico'] == servico)
+    if interface: mask &= (df['interface'] == interface)
+    if ip_fixo: mask &= (df['ip_fixo'] == ip_fixo)
+    if capacidade: mask &= (df['capacidade_mb'] == capacidade)
+    if vigencia: mask &= (df['vigencia_meses'] == vigencia)
 
-    df_filtrado = DADOS_FIXOS[mask]
+    df_filtrado = df[mask]
+    
+    quantidade = int(len(df_filtrado))
+    if quantidade == 0:
+        return {"custo_medio": "Nenhuma opção localizada", "quantidade_contratos": 0, "tipo_resultado": "sem_dados"}
+        
+    return {
+        "custo_medio": round(float(df_filtrado['valor_mensal'].mean()), 2),
+        "quantidade_contratos": quantidade,
+        "tipo_resultado": "especifico"
+    }
+    
+@app.get("/filtros/opcoes")
+async def get_opcoes():
+    global DADOS_FIXOS
+    if DADOS_FIXOS is None:
+        DADOS_FIXOS = carregar_dados_do_banco()
     
     return {
-        "custo_medio": round(float(df_filtrado['valor'].mean()), 2) if not df_filtrado.empty else 0,
-        "quantidade_contratos": int(len(df_filtrado)),
-        "tipo_resultado": "especifico" if not df_filtrado.empty else "sem_dados"
+        "servicos": DADOS_FIXOS['servico'].dropna().unique().tolist(),
+        "interfaces": DADOS_FIXOS['interface'].dropna().unique().tolist(),
+        "ips": DADOS_FIXOS['ip_fixo'].dropna().unique().tolist(),
+        "cidades": DADOS_FIXOS['cidade'].dropna().unique().tolist()
     }
-
-@app.post("/contratos/processar-planilha")
-async def processar_planilha_lote(file: UploadFile = File(...)):
-    if DADOS_FIXOS is None: return {"erro": "Base não carregada"}
-
-    content = await file.read()
-    # Tenta ler com separador ; ou ,
-    try:
-        df_entrada = pd.read_csv(io.BytesIO(content), sep=';', encoding='latin-1')
-        if len(df_entrada.columns) <= 1: df_entrada = pd.read_csv(io.BytesIO(content), sep=',', encoding='utf-8')
-    except:
-        df_entrada = pd.read_csv(io.BytesIO(content), sep=',', encoding='utf-8')
-
-    df_entrada.columns = [c.lower().strip() for c in df_entrada.columns]
-    
-    # Processamento simplificado para evitar loops pesados
-    # Nota: Mantenha sua lógica original aqui se precisar de precisão extrema
-    # O código original está ok, apenas garanta que ele rode sem erros de I/O
-    
-    output = io.StringIO()
-    df_entrada.to_csv(output, index=False, sep=';', encoding='latin-1')
-    
-    return StreamingResponse(
-        io.BytesIO(output.getvalue().encode('latin-1')),
-        media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=resultado.csv"}
-    )
-    
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=8080)

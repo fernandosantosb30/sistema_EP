@@ -1,8 +1,30 @@
-venv/
-*.pyc
-__pycache__/
-db.sqlite3
-.env
-static/
-../bat.txt
+# Arquivos de Sistema e IDEs
+.DS_Store
 .vscode/
+.idea/
+
+# Ambientes Virtuais e Cache
+.venv/
+__pycache__/
+*.pyc
+
+# Backups e Scripts de Teste
+*.json
+importar_*.py
+verificar_*.py
+db_*.json
+
+# Arquivos de Configuração de Node/Frontend
+node_modules/
+package-lock.json
+
+# Ambiente (Nunca suba suas senhas!)
+.env
+
+# Pastas do Django Antigo (Ignorar)
+core/
+providers/
+manage.py
+
+# Pasta de Scripts
+scripts_uteis/

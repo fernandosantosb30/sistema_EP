@@ -24,8 +24,33 @@ def extrair_numero(valor):
 
 def carregar_dados_planilha():
     caminho_csv = os.path.join(os.path.dirname(__file__), '..', 'contratos.csv')
+    
+    # Lista de encodings para tentar, caso o padrão falhe
+    encodings = ['latin-1', 'utf-8', 'cp1252', 'utf-8-sig']
+    # Lista de separadores prováveis
+    separadores = [';', ',', '\t']
+    
+    df = None
+    
+    # Tenta carregar com diferentes combinações de encoding e separador
+    for sep in separadores:
+        for enc in encodings:
+            try:
+                df = pd.read_csv(caminho_csv, sep=sep, encoding=enc, low_memory=False)
+                # Se o DataFrame não tiver pelo menos uma das colunas esperadas, 
+                # assume que o separador/encoding está errado
+                if 'Serviço' in df.columns or 'Cidade A' in df.columns:
+                    break
+            except:
+                continue
+        if df is not None and ('Serviço' in df.columns or 'Cidade A' in df.columns):
+            break
+            
+    if df is None:
+        print("❌ Erro: Não foi possível ler o arquivo. Verifique se o CSV está corrompido.")
+        return pd.DataFrame()
+
     try:
-        df = pd.read_csv(caminho_csv, low_memory=False)
         mapeamento = {
             'Cidade A': 'cidade',
             'UF A': 'uf',
@@ -36,15 +61,24 @@ def carregar_dados_planilha():
             'Vigência em (Meses)': 'prazo',
             'Valor Mensal (C/IMP) (R$)': 'valor'
         }
-        colunas_reais = [col for col in mapeamento.keys() if col in df.columns]
-        df = df[colunas_reais].rename(columns=mapeamento)
+        
+        # Filtra apenas colunas que existem no CSV
+        df = df.rename(columns=mapeamento)
+        colunas_reais = [col for col in mapeamento.values() if col in df.columns]
+        df = df[colunas_reais]
 
-        # Normalização de NÚMEROS
-        df['velocidade'] = df['velocidade'].apply(extrair_numero).astype(int)
-        df['prazo'] = df['prazo'].apply(extrair_numero).astype(int)
-        df['valor'] = df['valor'].apply(extrair_numero)
+        # Limpeza de dados numéricos
+        cols_numericas = ['velocidade', 'prazo', 'valor']
+        for col in cols_numericas:
+            if col in df.columns:
+                df[col] = df[col].apply(extrair_numero)
+        
+        # Converte para tipos numéricos forçados (trata erros como NaN)
+        df['velocidade'] = pd.to_numeric(df['velocidade'], errors='coerce').fillna(0).astype(int)
+        df['prazo'] = pd.to_numeric(df['prazo'], errors='coerce').fillna(0).astype(int)
+        df['valor'] = pd.to_numeric(df['valor'], errors='coerce').fillna(0)
 
-        # Normalização de TEXTO (Cidade, Serviço, etc)
+        # Normalização de TEXTO
         cols_texto = ['cidade', 'uf', 'tipo_servico', 'interface', 'ip_fixo']
         for col in cols_texto:
             if col in df.columns:
@@ -52,7 +86,7 @@ def carregar_dados_planilha():
 
         return df[df['valor'] > 0]
     except Exception as e:
-        print(f"Erro no processamento: {e}")
+        print(f"Erro no processamento dos dados: {e}")
         return pd.DataFrame()
 
 def obter_opcoes_filtros(df):

@@ -4,12 +4,11 @@
 <div class="container mt-4">
     <h2 class="text-white mb-4"><i class="bi bi-search text-info"></i> Consulta Avançada de Cobertura</h2>
 
-    <!-- SEÇÃO NOVA: MAPEAMENTO POR IMPORTAÇÃO (Adicionada aqui) -->
     <div class="card bg-dark border-info p-4 mb-4" style="border-style: dashed;">
-        <h5 class="text-info"><i class="bi bi-file-earmark-arrow-up"></i> Mapeamento por Importação (Projeto)</h5>
-        <p class="text-white-50 small">Suba um arquivo CSV com a lista de cidades para exportar todos os fornecedores disponíveis.</p>
+        <h5 class="text-info"><i class="bi bi-file-earmark-arrow-up"></i> Mapeamento por Importação</h5>
+        <p class="text-white-50 small">Suba um arquivo CSV para processar o mapeamento em lote.</p>
         
-        <form action="{% url 'importar_mapeamento' %}" method="POST" enctype="multipart/form-data">
+        <form action="{% url 'importar_mapeamento' %}" method="POST" enctype="multipart/form-data" class="row g-3 align-items-center">
             {% csrf_token %}
             <div class="col-md-9">
                 <input type="file" name="arquivo_cidades" class="form-control bg-dark text-white border-secondary" accept=".csv" required>
@@ -22,12 +21,11 @@
         </form>
     </div>
 
-    <!-- SEÇÃO DE FILTROS MANUAIS -->
     <div class="card bg-dark border-secondary p-4 mb-4">
-        <form method="GET" class="row g-3">
+        <form method="GET" action="{% url 'consulta_provedores' %}" class="row g-3">
             <div class="col-md-9">
                 <label class="form-label text-white-50">Fornecedor (Nome ou Razão Social)</label>
-                <input type="text" name="fornecedor" class="form-control bg-dark text-white border-secondary" placeholder="Digite o nome do provedor..." value="{{ request.GET.fornecedor }}">
+                <input type="text" name="fornecedor" class="form-control bg-dark text-white border-secondary" placeholder="Nome ou Razão Social" value="{{ request.GET.fornecedor }}">
             </div>
 
             <div class="col-md-3">
@@ -36,35 +34,28 @@
             </div>
 
             <div class="col-md-4">
-                <label class="form-label text-white-50">Cidade 1</label>
-                <input type="text" name="cidade1" class="form-control bg-dark text-white border-secondary" placeholder="Cidade A" value="{{ request.GET.cidade1 }}">
+                <input type="text" name="cidade1" class="form-control bg-dark text-white border-secondary" placeholder="Cidade 1" value="{{ request.GET.cidade1 }}">
             </div>
             <div class="col-md-4">
-                <label class="form-label text-white-50">Cidade 2</label>
-                <input type="text" name="cidade2" class="form-control bg-dark text-white border-secondary" placeholder="Cidade B" value="{{ request.GET.cidade2 }}">
+                <input type="text" name="cidade2" class="form-control bg-dark text-white border-secondary" placeholder="Cidade 2" value="{{ request.GET.cidade2 }}">
             </div>
             <div class="col-md-4">
-                <label class="form-label text-white-50">Cidade 3</label>
-                <input type="text" name="cidade3" class="form-control bg-dark text-white border-secondary" placeholder="Cidade C" value="{{ request.GET.cidade3 }}">
+                <input type="text" name="cidade3" class="form-control bg-dark text-white border-secondary" placeholder="Cidade 3" value="{{ request.GET.cidade3 }}">
             </div>
 
-            <div class="col-12 d-flex gap-2 mt-4">
-                <button type="submit" class="btn btn-primary px-5">
-                    <i class="bi bi-funnel-fill"></i> Aplicar Filtros
-                </button>
-                <!-- Ajustado para o caminho relativo caso a rota nomeada falhe -->
-                <a href="." class="btn btn-outline-secondary">Limpar Busca</a>
+            <div class="col-12 mt-3">
+                <button type="submit" class="btn btn-primary px-5">Aplicar Filtros</button>
+                <a href="{% url 'consulta_provedores' %}" class="btn btn-outline-secondary">Limpar</a>
             </div>
         </form>
     </div>
 
-    <!-- Tabela de Resultados -->
     <div class="table-responsive shadow-sm">
         <table class="table table-dark table-hover border-secondary">
             <thead class="table-secondary text-dark">
                 <tr>
                     <th>Fornecedor</th>
-                    <th>Localidades Atendidas</th>
+                    <th>Localidades</th>
                     <th>Trunk</th>
                     <th class="text-center">Ações</th>
                 </tr>
@@ -72,33 +63,21 @@
             <tbody>
                 {% for provedor in provedores %}
                 <tr>
+                    <td>{{ provedor.nome }}</td>
                     <td>
-                        <span class="fw-bold">{{ provedor.nome }}</span><br>
-                        <small class="text-info">{{ provedor.cnpj }}</small>
-                    </td>
-                    <td>
-                        <small>
-                        {% for cidade in provedor.cidades.all|slice:":5" %}
+                        {% for cidade in provedor.cidades.all|slice:":3" %}
                             {{ cidade.nome }}-{{ cidade.uf }}{% if not forloop.last %}, {% endif %}
                         {% endfor %}
-                        {% if provedor.cidades.count > 5 %}... (+{{ provedor.cidades.count|add:"-5" }}){% endif %}
-                        </small>
-                    </td>
-                    <td>
-                        {% if provedor.fibra %}<i class="bi bi-lightning-fill text-primary" title="Fibra"></i>{% endif %}
-                        {% if provedor.radio %}<i class="bi bi-broadcast text-warning" title="Rádio"></i>{% endif %}
-                        {% if provedor.parceiro_bst %}<span class="badge bg-success ms-1">BST</span>{% endif %}
                     </td>
                     <td class="text-center">
-                        <a href="{% url 'editar_provedor' provedor.id %}" class="btn btn-sm btn-outline-light"><i class="bi bi-pencil"></i></a>
+                        {% if provedor.parceiro_bst %}<span class="badge bg-success">BST</span>{% else %}<span class="text-muted">...</span>{% endif %}
+                    </td>
+                    <td class="text-center">
+                        <a href="{% url 'editar_provedor' provedor.id %}" class="btn btn-sm btn-outline-light">Editar</a>
                     </td>
                 </tr>
                 {% empty %}
-                <tr>
-                    <td colspan="4" class="text-center py-5 text-white-50">
-                        Nenhum provedor encontrado com os filtros aplicados.
-                    </td>
-                </tr>
+                <tr><td colspan="4" class="text-center py-4">Nenhum provedor encontrado.</td></tr>
                 {% endfor %}
             </tbody>
         </table>

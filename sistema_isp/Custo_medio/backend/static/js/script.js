@@ -1,7 +1,7 @@
 // 1. Função para carregar os filtros dinâmicos
 async function carregarFiltros() {
     try {
-        const response = await fetch('http://127.0.0.1:8080/filtros/opcoes');
+        const response = await fetch('http://127.0.0.1:8000/filtros/opcoes');
         if (!response.ok) throw new Error('Falha ao carregar opções');
         
         const opcoes = await response.json();
@@ -18,6 +18,7 @@ async function carregarFiltros() {
         console.error("Erro ao carregar filtros:", e);
     }
 }
+
 
 // Função auxiliar para montar as opções
 function preencherSelect(id, lista) {
@@ -56,7 +57,7 @@ async function buscarMedia() {
     const textoAlerta = document.getElementById('texto-alerta');
 
     // CORREÇÃO: Alterado de 8000 para 8080 para bater com o FastAPI unificado
-    const url = new URL('http://127.0.0.1:8080/contratos/custo-medio');
+    const url = new URL('http://127.0.0.1:8000/api/custo-medio/');
     Object.keys(campos).forEach(key => {
         if (campos[key]) url.searchParams.append(key, campos[key]);
     });
@@ -99,7 +100,7 @@ async function buscarMedia() {
     } catch (error) {
         console.error('Erro:', error);
         // CORREÇÃO: Ajustada mensagem de alerta para apontar para a porta 8080
-        alert('Erro ao conectar com o servidor da API. Verifique se o FastAPI está rodando na porta 8080.');
+        alert('Erro ao conectar com o servidor da API. Verifique se o FastAPI está rodando na porta 8000.')
         if (displayMedia) displayMedia.innerText = "R$ 0,00";
     }
 }
@@ -125,7 +126,7 @@ async function subirPlanilha() {
         btn.disabled = true;
 
         // CORREÇÃO: Alterado de 8000 para 8080 para bater com o FastAPI unificado
-        const response = await fetch('http://127.0.0.1:8080/contratos/processar-planilha', {
+        const response = await fetch('http://127.0.0.1:8000/contratos/processar-planilha', {
             method: 'POST',
             body: formData
         });

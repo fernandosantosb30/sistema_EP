@@ -27,7 +27,7 @@ SECRET_KEY = os.environ.get('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['sistema-ep.onrender.com', '*']
+ALLOWED_HOSTS = ['sistema-ep.onrender.com']
 
 
 # Application definition
@@ -89,7 +89,7 @@ if not db_url:
 
 # Configuração do banco de dados
 DATABASES = {
-    'default': dj_database_url.config(default=db_url, conn_max_age=600, ssl_require=True)
+    'default': dj_database_url.config(default=os.environ.get('DATABASE_URL'))
 }
 
 # Password validation

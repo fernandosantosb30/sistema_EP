@@ -104,30 +104,29 @@
         </div>
         
         <!-- Tabelas de Cidades e Contatos -->
-        <div class="row mt-4">
-            <div class="col-md-6">
-                <div class="card-custom p-3 border rounded shadow-sm h-100" style="background-color: rgba(255,255,255,0.05);">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <div class="header-section text-white fw-bold">Cidades <i class="bi bi-geo-alt"></i></div>
-                        <div class="d-flex gap-2">
-                            {% if provedor.id %}
-                                <a href="{% url 'excluir_todas_cidades' provedor.id %}" 
-                                   class="btn btn-sm btn-outline-danger py-0 px-2 shadow-sm" 
-                                   onclick="return confirm('ATENÇÃO: Você está prestes a apagar TODAS as cidades deste provedor. Confirmar?')"
-                                   title="Limpar todas as cidades">
-                                    <i class="bi bi-trash3-fill"></i>
-                                </a>
-                                
-                                <button type="button" class="btn btn-sm btn-outline-success py-0 px-2" data-bs-toggle="modal" data-bs-target="#modalImportarCSV" title="Importar CSV">
-                                    <i class="bi bi-file-earmark-spreadsheet"></i> CSV
-                                </button>
-                                
-                                <button type="button" class="btn btn-sm btn-primary py-0 px-2" data-bs-toggle="modal" data-bs-target="#modalCidade" title="Adicionar Manual">
-                                    <i class="bi bi-plus-lg"></i>
-                                </button>
-                            {% endif %}
-                        </div>
-                    </div>
+                <div class="row mt-4">
+                        <div class="col-md-6">
+                            <div class="card-custom p-3 border rounded shadow-sm h-100" style="background-color: rgba(255,255,255,0.05);">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                <div class="header-section text-white fw-bold">Cidades <i class="bi bi-geo-alt"></i></div>
+                <div class="d-flex gap-2">
+                    {% if provedor.id %}
+                        {% if user.is_staff %}
+                            <a href="{% url 'excluir_todas_cidades' provedor.id %}" class="btn btn-sm btn-outline-danger py-0 px-2" onclick="return confirm('Confirmar exclusão?')">
+                                <i class="bi bi-trash3-fill"></i>
+                            </a>
+                        {% endif %}
+                        <button type="button" class="btn btn-sm btn-outline-success py-0 px-2" data-bs-toggle="modal" data-bs-target="#modalImportarCSV">
+                            <i class="bi bi-file-earmark-spreadsheet"></i> CSV
+                        </button>
+                        <button type="button" class="btn btn-sm btn-primary py-0 px-2" data-bs-toggle="modal" data-bs-target="#modalCidade">
+                            <i class="bi bi-plus-lg"></i>
+                        </button>
+                    {% else %}
+                        <span class="small text-warning">Salve o provedor para gerenciar cidades.</span>
+                    {% endif %}
+                </div>
+            </div>
                     <table class="table table-sm table-dark table-hover mb-0 mt-2">
                         <thead>
                             <tr class="small text-white-50">
@@ -140,13 +139,16 @@
                             {% if provedor.id %}
                                 {% for cidade in provedor.cidades.all %}
                                 <tr class="small align-middle">
-                                    <td>{{ cidade.nome }}</td>
-                                    <td>{{ cidade.uf }}</td>
-                                    <td class="text-center">
-                                        <!-- CORREÇÃO: URL de exclusão com ID da cidade -->
-                                        <a href="{% url 'excluir_cidade' cidade.id %}" class="text-danger" onclick="return confirm('Excluir esta cidade?')"><i class="bi bi-trash"></i></a>
-                                    </td>
-                                </tr>
+                                <td>{{ cidade.nome }}</td>
+                                <td>{{ cidade.uf }}</td>
+                                <td class="text-center">
+                                    {% if user.is_staff %}
+                                        <a href="{% url 'excluir_cidade' cidade.id %}" class="text-danger" onclick="return confirm('Excluir esta cidade?')">
+                                            <i class="bi bi-trash"></i>
+                                        </a>
+                                    {% endif %}
+                                </td>
+                            </tr>
                                 {% empty %}
                                 <tr><td colspan="3" class="text-center text-white-50 small italic py-3">Sem cidades.</td></tr>
                                 {% endfor %}

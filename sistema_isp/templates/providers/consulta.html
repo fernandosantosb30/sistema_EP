@@ -62,21 +62,29 @@
                     <th>Trunk</th>
                 </tr>
             </thead>
-            <tbody>
-                {% for item in mapeamento %}
-                <tr>
-                    <td>{{ item.fornecedor }}</td>
-                    <td>{{ item.contato }}</td>
-                    <td>
-                        {% if item.trunk == "BST" %}
-                            <span class="badge bg-success">BST</span>
-                        {% else %}
-                            <span class="text-muted">-</span>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
+                <tbody>
+                    {% for item in mapeamento %}
+                    <tr>
+                        <td>{{ item.nome }}</td>
+                        
+                        <td>
+                            {% for c in item.contatos.all %}
+                                {{ c.nome }}{% if not forloop.last %}, {% endif %}
+                            {% empty %}
+                                <span class="text-muted">-</span>
+                            {% endfor %}
+                        </td>
+                        
+                        <td>
+                            {% if item.parceiro_bst %}
+                                <span class="badge bg-success">BST</span>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
         </table>
     </div>
 </div>

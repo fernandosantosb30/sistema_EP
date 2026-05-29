@@ -89,21 +89,31 @@ def lista_provedores(request):
 
 @login_required
 def consulta_provedores(request):
-    fornecedor = request.GET.get('fornecedor', '').strip()
-    uf = request.GET.get('uf', '').strip()
-    cidades = [request.GET.get(f'cidade{i}', '').strip() for i in range(1, 4)]
-
-    queryset = Provedor.objects.filter(ativo=True)
+    # Inicializa o queryset (busca todos)
+    provedores = Provedor.objects.all()
+    
+    # Pega os dados do formulário
+    fornecedor = request.GET.get('fornecedor')
+    uf = request.GET.get('uf')
+    cidade1 = request.GET.get('cidade1')
+    
+    # Aplica os filtros se eles existirem
     if fornecedor:
-        queryset = queryset.filter(Q(nome__icontains=fornecedor) | Q(razao_social__icontains=fornecedor))
+        provedores = provedores.filter(nome__icontains=fornecedor)
+    
     if uf:
-        queryset = queryset.filter(cidades__uf__iexact=uf)
+        provedores = provedores.filter(cidades__uf__iexact=uf)
+        
+    if cidade1:
+        provedores = provedores.filter(cidades__nome__icontains=cidade1)
     
-    filtros_cidade = Q()
-    for c in cidades:
-        if c: filtros_cidade |= Q(cidades__nome__icontains=c)
+    # DICA: O template espera uma lista chamada 'mapeamento'. 
+    # Então passamos 'provedores' com o nome 'mapeamento' para o template.
+    context = {
+        'mapeamento': provedores
+    }
     
-    return render(request, 'providers/consulta.html', {'provedores': queryset.filter(filtros_cidade).distinct()})
+    return render(request, 'consulta.html', context)
 
 # --- GESTÃO DE CUSTO MÉDIO (INTEGRADA) ---
 

@@ -78,14 +78,14 @@ def home_view(request):
 
 @login_required
 def lista_provedores(request):
-    query = request.GET.get('q', '').strip()
-    queryset = Provedor.objects.all().order_by('-data_cadastro')
-    if query:
-        queryset = queryset.filter(Q(nome__icontains=query) | Q(razao_social__icontains=query))
+    # REMOVIDO: .order_by('-data_cadastro') temporariamente
+    queryset = Provedor.objects.all() 
     
-    paginator = Paginator(queryset, 10)
-    page_obj = paginator.get_page(request.GET.get('page'))
-    return render(request, 'providers/lista.html', {'provedores': page_obj, 'total_registros': queryset.count()})
+    # Adicione este print para ver no terminal do servidor do Render o que está acontecendo
+    print(f"Total de registros encontrados: {queryset.count()}") 
+    
+    # Se aqui o count for > 0, o problema está na paginação ou no template HTML
+    return render(request, 'providers/lista.html', {'provedores': queryset, 'total_registros': queryset.count()})
 
 @login_required
 def consulta_provedores(request):

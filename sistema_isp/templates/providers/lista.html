@@ -8,54 +8,36 @@
             <i class="bi bi-plus-lg"></i> Novo Registro
         </a>
 
-        <form method="GET" action="{% url 'lista_provedores' %}" class="mb-3">
-    <div class="row align-items-center">
-        <div class="col-md-8"> 
-            <div class="input-group">
-                <input type="text" name="q" 
-                       /* Removido form-control-lg e adicionado py-1 para ficar mais fino */
-                       class="form-control py-1 bg-dark text-white" 
-                       style="border: 2px solid #198754;" 
-                       placeholder="Pesquisar..." 
-                       value="{{ request.GET.q }}">
-                
-                <button class="btn btn-success py-1 px-3" type="submit">
-                    <i class="bi bi-search"></i>
-                </button>
-                
-                {% if request.GET.q %}
-                    <a href="{% url 'lista_provedores' %}" class="btn btn-outline-danger py-1 px-3">
-                        <i class="bi bi-x-lg"></i>
-                    </a>
-                {% endif %}
+        <form method="GET" action="{% url 'lista_provedores' %}" class="mb-0">
+            <div class="row align-items-center">
+                <div class="col-md-12"> 
+                    <div class="input-group">
+                        <input type="text" name="q" 
+                               class="form-control py-1 bg-dark text-white" 
+                               style="border: 2px solid #198754;" 
+                               placeholder="Pesquisar..." 
+                               value="{{ request.GET.q }}">
+                        
+                        <button class="btn btn-success py-1 px-3" type="submit">
+                            <i class="bi bi-search"></i>
+                        </button>
+                        
+                        {% if request.GET.q %}
+                            <a href="{% url 'lista_provedores' %}" class="btn btn-outline-danger py-1 px-3">
+                                <i class="bi bi-x-lg"></i>
+                            </a>
+                        {% endif %}
+                    </div>
+                </div>
             </div>
-        </div>
-    </div>
-</form>
-
+        </form>
     </div>
 
     <div class="d-flex justify-content-between align-items-center mt-3">
         <div class="text-white">
             Total de registros: <strong>{{ total_registros }}</strong>
         </div>
-
-        <nav aria-label="Navegação de página">
-    <ul class="pagination pagination-sm mb-0">
-        {% if provedores.has_previous %}
-            <li class="page-item"><a class="page-link" href="?page=1{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">&laquo;</a></li>
-            <li class="page-item"><a class="page-link" href="?page={{ provedores.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">Anterior</a></li>
-        {% endif %}
-
-        <li class="page-item disabled"><span class="page-link bg-dark text-white-50 border-secondary">Pág {{ provedores.number }} de {{ provedores.paginator.num_pages }}</span></li>
-
-        {% if provedores.has_next %}
-            <li class="page-item"><a class="page-link" href="?page={{ provedores.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">Próxima</a></li>
-            <li class="page-item"><a class="page-link" href="?page={{ provedores.paginator.num_pages }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">&raquo;</a></li>
-        {% endif %}
-    </ul>
-</nav>
-    </div>
+        </div>
 
     <div class="card shadow-sm border-0" style="background-color: rgba(255,255,255,0.05);">
         <div class="card-body p-0">
@@ -71,36 +53,37 @@
                         </tr>
                     </thead>
                     <tbody class="text-white">
-                        {% for p in provedores %}
-                        <tr>
-                            <td class="ps-4">
-                                <a href="{% url 'editar_provedor' p.id %}" class="btn btn-sm btn-link text-info p-0 me-2" title="Visualizar/Editar">
-                                    <i class="bi bi-eye"></i>
-                                </a>
-                                <a href="{% url 'editar_provedor' p.id %}" class="btn btn-sm btn-link text-warning p-0 me-2" title="Editar">
-                                    <i class="bi bi-pencil-square"></i>
-                                </a>
-                                {% if user.is_superuser %}
-                                <a href="#" class="btn btn-sm btn-link text-danger p-0" title="Excluir" onclick="return confirm('Confirmar exclusão?')">
-                                    <i class="bi bi-trash"></i>
-                                </a>
-                                {% endif %}
-                            </td>
-                            <td>{{ p.id }}</td>
-                            <td>{{ p.nome }}</td>
-                            <td>{{ p.data_cadastro|date:"d/m/Y H:i" }}</td>
-                            <td>{% if p.ativo %}S{% else %}N{% endif %}</td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="5" class="text-center py-4">Nenhum provedor cadastrado.</td>
-                        </tr>
-                        {% endfor %}
+                        {% if provedores %}
+                            {% for p in provedores %}
+                            <tr>
+                                <td class="ps-4">
+                                    <a href="{% url 'editar_provedor' p.id %}" class="btn btn-sm btn-link text-info p-0 me-2" title="Visualizar">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    <a href="{% url 'editar_provedor' p.id %}" class="btn btn-sm btn-link text-warning p-0 me-2" title="Editar">
+                                        <i class="bi bi-pencil-square"></i>
+                                    </a>
+                                    {% if user.is_superuser %}
+                                    <a href="{% url 'excluir_provedor' p.id %}" class="btn btn-sm btn-link text-danger p-0" title="Excluir" onclick="return confirm('Confirmar exclusão de {{ p.nome }}?')">
+                                        <i class="bi bi-trash"></i>
+                                    </a>
+                                    {% endif %}
+                                </td>
+                                <td>{{ p.id }}</td>
+                                <td>{{ p.nome }}</td>
+                                <td>{{ p.data_cadastro|default:"---"|date:"d/m/Y H:i" }}</td>
+                                <td>{% if p.ativo %}S{% else %}N{% endif %}</td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="5" class="text-center py-4">Nenhum provedor cadastrado ou página vazia.</td>
+                            </tr>
+                        {% endif %}
                     </tbody>
                 </table>
             </div>
         </div>
     </div>
-    
-    </div>
+</div>
 {% endblock %}

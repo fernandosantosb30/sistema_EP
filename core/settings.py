@@ -83,22 +83,20 @@ WSGI_APPLICATION = 'core.wsgi.application'
 db_url = os.environ.get('DATABASE_URL')
 
 if 'DATABASE_URL' in os.environ:
+    import dj_database_url
     DATABASES = {
         'default': dj_database_url.config(conn_max_age=600, ssl_require=True)
     }
 else:
+    # Configuração para o seu PC local
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
             'NAME': 'sistema_isp_db',
             'USER': 'postgres',
-            'PASSWORD': 'GGwaopq@1', # O Django lida bem com o @ aqui, não precisa do %40
+            'PASSWORD': 'GGwaopq@1',
             'HOST': 'localhost',
             'PORT': '5432',
-            # Adicione esta opção para evitar o erro de SSL localmente:
-            'OPTIONS': {
-                'sslmode': 'disable',
-            },
         }
     }
 

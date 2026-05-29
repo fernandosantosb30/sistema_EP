@@ -4,7 +4,7 @@
 <div class="container-fluid">
     <h2>Painel de Custo Médio</h2>
 
-    <form method="GET" action="{% url 'processar_custo_medio' %}" class="row g-3 mb-4">
+        <form method="GET" action="{% url 'processar_custo_medio' %}" class="row g-3 mb-4">
         <div class="col-md-3">
             <input type="text" name="cidade" class="form-control" placeholder="Cidade" value="{{ request.GET.cidade }}">
         </div>
@@ -12,13 +12,15 @@
             <input type="text" name="uf" class="form-control" placeholder="UF" value="{{ request.GET.uf }}">
         </div>
         <div class="col-md-3">
-            <select name="servico" class="form-control">
-                <option value="">Selecione o Serviço</option>
-                <option value="Fibra" {% if request.GET.servico == 'Fibra' %}selected{% endif %}>Fibra</option>
-                <option value="Radio" {% if request.GET.servico == 'Radio' %}selected{% endif %}>Rádio</option>
-            </select>
+            <input type="text" name="servico" class="form-control" placeholder="Serviço" value="{{ request.GET.servico }}">
         </div>
         <div class="col-md-2">
+            <input type="number" name="capacidade" class="form-control" placeholder="Capacidade (MB)" value="{{ request.GET.capacidade }}">
+        </div>
+        <div class="col-md-2">
+            <input type="number" name="vigencia" class="form-control" placeholder="Vigência (Meses)" value="{{ request.GET.vigencia }}">
+        </div>
+        <div class="col-md-12 text-end">
             <button type="submit" class="btn btn-primary">Pesquisar</button>
         </div>
     </form>

@@ -173,15 +173,18 @@ def adicionar_contato(request, provedor_id):
     return render(request, 'providers/cadastro.html', {'form': ContatoForm()})
 
 @login_required
-def adicionar_contato(request, provedor_id):
-    ContatoForm = get_contato_form()
-    provedor = get_object_or_404(Provedor, id=provedor_id)
+def editar_contato(request, contato_id):
+    # Definindo o form localmente para evitar erros de importação
+    ContatoForm = get_form(Contato)
+    contato = get_object_or_404(Contato, id=contato_id)
     if request.method == 'POST':
-        form = ContatoForm(request.POST)
+        form = ContatoForm(request.POST, instance=contato)
         if form.is_valid():
-            c = form.save(commit=False); c.provedor = provedor; c.save()
+            form.save()
             return redirect('lista_provedores')
-    return render(request, 'providers/cadastro.html', {'form': ContatoForm()}) # Ajustado para o nome do arquivo
+    else:
+        form = ContatoForm(instance=contato)
+    return render(request, 'providers/cadastro.html', {'form': form})
 
 @user_passes_test(e_admin)
 @login_required

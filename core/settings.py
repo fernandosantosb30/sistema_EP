@@ -79,13 +79,18 @@ WSGI_APPLICATION = 'core.wsgi.application'
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
 db_url = os.environ.get('DATABASE_URL')
+
+# Se não encontrar, lança um erro mais claro ou usa um padrão (opcional)
 if not db_url:
-    raise Exception("Variável DATABASE_URL não encontrada! Verifique o painel do Render.")
+    # Em vez de um raise Exception bruto, podemos imprimir um log para o console
+    print("AVISO: Variável DATABASE_URL não encontrada no ambiente!")
+    # Você pode definir um sqlite local para desenvolvimento caso não encontre
+    db_url = 'sqlite:///db.sqlite3'
 
+# Configuração do banco de dados
 DATABASES = {
-    'default': dj_database_url.parse(db_url, conn_max_age=600)
+    'default': dj_database_url.config(default=db_url, conn_max_age=600, ssl_require=True)
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators

@@ -3,47 +3,18 @@
 {% block content %}
 <div class="container-fluid">
     <h2>Painel de Custo Médio</h2>
-
-        <form method="GET" action="{% url 'processar_custo_medio' %}">
+    
+    <form method="GET" action="{% url 'processar_custo_medio' %}" class="row g-3 mb-4">
         <div class="col-md-3">
-            <input type="text" name="cidade" placeholder="Cidade">
+            <input type="text" name="cidade" class="form-control" placeholder="Cidade" value="{{ request.GET.cidade }}">
         </div>
         <div class="col-md-2">
             <input type="text" name="uf" class="form-control" placeholder="UF" value="{{ request.GET.uf }}">
         </div>
-        <div class="col-md-3">
-            <input type="text" name="servico" class="form-control" placeholder="Serviço" value="{{ request.GET.servico }}">
-        </div>
-        <div class="col-md-2">
-            <input type="number" name="capacidade" class="form-control" placeholder="Capacidade (MB)" value="{{ request.GET.capacidade }}">
-        </div>
-        <div class="col-md-2">
-            <input type="number" name="vigencia" class="form-control" placeholder="Vigência (Meses)" value="{{ request.GET.vigencia }}">
-        </div>
-        <div class="col-md-12 text-end">
-            <button type="submit">Pesquisar</button>
+        <div class="col-md-2 text-end">
+            <button type="submit" class="btn btn-primary">Pesquisar</button>
         </div>
     </form>
-
-    {% if custo_medio %}
-        <div class="alert alert-success">
-            <h4>Resultado da Consulta:</h4>
-            <p><strong>Custo Médio:</strong> R$ {{ custo_medio }}</p>
-            <p><strong>Quantidade de Contratos analisados:</strong> {{ quantidade_contratos }}</p>
-        </div>
-    {% elif mensagem_erro %}
-        <div class="alert alert-warning">
-            {{ mensagem_erro }}
-        </div>
-    {% endif %}
-
-    <div class="mt-5 border-top pt-3">
-        <h5>Processamento em Lote (Upload CSV)</h5>
-        <form method="POST" enctype="multipart/form-data">
-            {% csrf_token %}
-            <input type="file" name="arquivo_custo" class="form-control mb-2">
-            <button type="submit" class="btn btn-secondary">Processar Arquivo</button>
-        </form>
+    
     </div>
-</div>
 {% endblock %}

@@ -1,7 +1,11 @@
 services:
   - type: web
-    name: sistema-isp-deploy
+    name: sistema-isp
     runtime: python
+    plan: free
+    rootDir: sistema_isp/projeto_django_backup
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn core.wsgi:application --bind 0.0.0.0:$PORT
-    rootDir: sistema_isp/projeto_django_backup
+    envVars:
+      - key: PYTHONPATH
+        value: .

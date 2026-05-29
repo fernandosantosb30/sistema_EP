@@ -21,10 +21,5 @@ package-lock.json
 # Ambiente (Nunca suba suas senhas!)
 .env
 
-# Pastas do Django Antigo (Ignorar)
-core/
-providers/
-manage.py
-
 # Pasta de Scripts
 scripts_uteis/

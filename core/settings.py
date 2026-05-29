@@ -27,7 +27,7 @@ SECRET_KEY = os.environ.get ('django-insecure-8&w-!j%a1xf8m_&7@6xc832x)^n1592kpr
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',')
+ALLOWED_HOSTS = ['sistema-ep.onrender.com']
 
 
 # Application definition

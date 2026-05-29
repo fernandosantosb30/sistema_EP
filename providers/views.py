@@ -6,6 +6,7 @@ import unicodedata
 # --- BIBLIOTECAS DE TERCEIROS ---
 import pandas as pd
 from sqlalchemy import create_engine
+from django.forms import modelform_factory
 
 # --- BIBLIOTECAS DJANGO ---
 from django.conf import settings
@@ -131,4 +132,89 @@ def processar_custo_medio(request):
 
     return render(request, 'providers/custo_medio_integrado.html', context)
 
-# ... (Mantidas as funções de edição e importação conforme seu original) ...
+ProvedorForm = modelform_factory(Provedor, fields="__all__")
+ContatoForm = modelform_factory(Contato, fields="__all__")
+CidadeAtendidaForm = modelform_factory(CidadeAtendida, fields="__all__")
+
+@login_required
+def editar_provedor(request, pk=None):
+    provedor = get_object_or_404(Provedor, pk=pk) if pk else Provedor()
+    if request.method == 'POST':
+        form = ProvedorForm(request.POST, instance=provedor)
+        if form.is_valid():
+            form.save()
+            return redirect('lista_provedores')
+    else:
+        form = ProvedorForm(instance=provedor)
+    return render(request, 'providers/provedor_form.html', {'form': form})
+
+@login_required
+def excluir_provedor(request, pk):
+    provedor = get_object_or_404(Provedor, pk=pk)
+    provedor.delete()
+    return redirect('lista_provedores')
+
+# --- GESTÃO DE CONTATOS ---
+
+@login_required
+def adicionar_contato(request, provedor_id):
+    provedor = get_object_or_404(Provedor, id=provedor_id)
+    if request.method == 'POST':
+        form = ContatoForm(request.POST)
+        if form.is_valid():
+            contato = form.save(commit=False)
+            contato.provedor = provedor
+            contato.save()
+            return redirect('lista_provedores')
+    return render(request, 'providers/contato_form.html', {'form': ContatoForm()})
+
+@login_required
+def editar_contato(request, contato_id):
+    contato = get_object_or_404(Contato, id=contato_id)
+    if request.method == 'POST':
+        form = ContatoForm(request.POST, instance=contato)
+        if form.is_valid():
+            form.save()
+            return redirect('lista_provedores')
+    return render(request, 'providers/contato_form.html', {'form': ContatoForm(instance=contato)})
+
+@login_required
+def excluir_contato(request, contato_id):
+    contato = get_object_or_404(Contato, id=contato_id)
+    contato.delete()
+    return redirect('lista_provedores')
+
+# --- GESTÃO DE CIDADES ---
+
+@login_required
+def adicionar_cidade(request, provedor_id):
+    provedor = get_object_or_404(Provedor, id=provedor_id)
+    if request.method == 'POST':
+        form = CidadeAtendidaForm(request.POST)
+        if form.is_valid():
+            cidade = form.save(commit=False)
+            cidade.provedor = provedor
+            cidade.save()
+            return redirect('lista_provedores')
+    return render(request, 'providers/cidade_form.html', {'form': CidadeAtendidaForm()})
+
+@login_required
+def excluir_cidade(request, cidade_id):
+    cidade = get_object_or_404(CidadeAtendida, id=cidade_id)
+    cidade.delete()
+    return redirect('lista_provedores')
+
+@login_required
+def excluir_todas_cidades(request, provedor_id):
+    CidadeAtendida.objects.filter(provedor_id=provedor_id).delete()
+    return redirect('lista_provedores')
+
+# --- IMPORTAÇÃO E MAPEAMENTO ---
+
+@login_required
+def importar_e_mapear_projeto(request):
+    return render(request, 'providers/importar.html')
+
+@login_required
+def importar_cidades_csv(request, provedor_id):
+    return redirect('lista_provedores')

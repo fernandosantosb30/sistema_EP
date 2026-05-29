@@ -23,6 +23,11 @@ class Provedor(models.Model):
     zona_rural = models.BooleanField(default=False)
     
     observacao = models.TextField(blank=True, null=True)
+    
+    class Meta:
+        app_label = 'providers'  # <--- ESSA LINHA RESOLVE O ERRO
+        verbose_name = 'Provedor'
+        verbose_name_plural = 'Provedores'
 
     def __str__(self):
         return self.nome
@@ -33,10 +38,8 @@ class CidadeAtendida(models.Model):
     uf = models.CharField(max_length=2, db_index=True)
 
     class Meta:
-        # 1. Impede duplicidade do mesmo provedor na mesma cidade/UF
+        app_label = 'providers'  # <--- ADICIONE ISSO
         unique_together = ('provedor', 'nome', 'uf')
-        
-        # 2. Índice para acelerar buscas por nome da cidade e UF (fora do contexto de provedor)
         indexes = [
             models.Index(fields=['nome', 'uf']),
         ]
@@ -55,6 +58,9 @@ class Contato(models.Model):
     prioridade = models.CharField(max_length=1, default='S')
     valor_medio = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     aval_retorno = models.IntegerField(default=0)
+    
+    class Meta:
+        app_label = 'providers'
 
     def __str__(self):
         return f"{self.nome} ({self.provedor.nome})"
@@ -65,6 +71,9 @@ class HistoricoCusto(models.Model):
     data_registro = models.DateField(auto_now_add=True)
     descricao = models.CharField(max_length=255, blank=True, null=True)
 
+    class Meta:
+        app_label = 'providers'
+    
     def __str__(self):
         return f"{self.provedor.nome} - R$ {self.valor_custo}"
     
@@ -77,6 +86,9 @@ class ContratoCusto(models.Model):
     valor_mensal = models.DecimalField(max_digits=10, decimal_places=2)
     capacidade_mb = models.IntegerField(help_text="Velocidade em MB")
     vigencia_meses = models.IntegerField()
+    
+    class Meta:
+        app_label = 'providers'
 
     def __str__(self):
         return f"{self.cidade}/{self.uf} - {self.servico} ({self.valor_mensal})"

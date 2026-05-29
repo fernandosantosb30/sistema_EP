@@ -39,10 +39,10 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'django.contrib.postgres',
+    
+    # Adicione estas linhas:
     'providers',
-    'crispy_forms',
-    'crispy_bootstrap5',
+    'sistema_isp', 
 ]
 
 MIDDLEWARE = [
@@ -82,17 +82,25 @@ WSGI_APPLICATION = 'core.wsgi.application'
 
 db_url = os.environ.get('DATABASE_URL')
 
-# Se não encontrar, lança um erro mais claro ou usa um padrão (opcional)
-if not db_url:
-    # Em vez de um raise Exception bruto, podemos imprimir um log para o console
-    print("AVISO: Variável DATABASE_URL não encontrada no ambiente!")
-    # Você pode definir um sqlite local para desenvolvimento caso não encontre
-    db_url = 'sqlite:///db.sqlite3'
-
-# Configuração do banco de dados
-DATABASES = {
-    'default': dj_database_url.config(default=os.environ.get('DATABASE_URL'))
-}
+if 'DATABASE_URL' in os.environ:
+    DATABASES = {
+        'default': dj_database_url.config(conn_max_age=600, ssl_require=True)
+    }
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': 'sistema_isp_db',
+            'USER': 'postgres',
+            'PASSWORD': 'GGwaopq@1', # O Django lida bem com o @ aqui, não precisa do %40
+            'HOST': 'localhost',
+            'PORT': '5432',
+            # Adicione esta opção para evitar o erro de SSL localmente:
+            'OPTIONS': {
+                'sslmode': 'disable',
+            },
+        }
+    }
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators

@@ -106,10 +106,19 @@
                         </a>
                     {% endif %}
                     {% if provedor.id %}
-                        <button type="button" class="btn btn-sm btn-outline-success py-0 px-2" data-bs-toggle="modal" data-bs-target="#modalImportarCSV" title="Importar CSV"><i class="bi bi-file-earmark-spreadsheet"></i> CSV</button>
-                        <button type="button" class="btn btn-sm btn-primary py-0 px-2" data-bs-toggle="modal" data-bs-target="#modalCidade" title="Adicionar"><i class="bi bi-plus-lg"></i></button>
-                    {% else %}
-                        <button type="button" class="btn btn-sm btn-secondary py-0 px-2" disabled><i class="bi bi-plus-lg"></i></button>
+                       <button type="button" class="btn btn-sm btn-outline-success py-0 px-2" title="Importar CSV" 
+                        onclick="new bootstrap.Modal(document.getElementById('modalImportarCSV')).show()">
+                        <i class="bi bi-file-earmark-spreadsheet"></i> CSV
+                        </button>
+
+                        <button type="button" class="btn btn-sm btn-primary py-0 px-2" title="Adicionar" 
+                                onclick="new bootstrap.Modal(document.getElementById('modalCidade')).show()">
+                            <i class="bi bi-plus-lg"></i>
+                        </button>
+                        {% else %}
+                        <button type="button" class="btn btn-sm btn-secondary py-0 px-2" disabled>
+                            <i class="bi bi-plus-lg"></i>
+                        </button>
                     {% endif %}
                 </div>
             </div>

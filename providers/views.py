@@ -118,7 +118,7 @@ def consulta_provedores(request):
         'mapeamento': provedores
     }
     
-    return render(request, 'consulta.html', context)
+    return render(request, 'providers/consulta.html', context)
 # --- GESTÃO DE CUSTO MÉDIO (INTEGRADA) ---
 
 @login_required

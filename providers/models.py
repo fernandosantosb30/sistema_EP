@@ -1,6 +1,5 @@
 from django.db import models
 from django import forms
-from .models import Provedor
 
 class Provedor(models.Model):
     # Identificação
@@ -50,16 +49,11 @@ class CidadeAtendida(models.Model):
         return f"{self.nome}/{self.uf}"
 
 class Contato(models.Model):
-    provedor = models.ForeignKey(Provedor, related_name='contatos', on_delete=models.CASCADE)
+    provedor = models.ForeignKey('Provedor', on_delete=models.CASCADE, related_name='contatos')
     nome = models.CharField(max_length=100)
     cargo = models.CharField(max_length=100, null=True, blank=True) # Ajustado para opcional conforme imagem
     telefone = models.CharField(max_length=20, null=True, blank=True) # Ajustado para opcional
     email = models.EmailField(null=True, blank=True) # Ajustado para opcional
-    
-    # Campos que você já tinha (mantidos)
-    prioridade = models.CharField(max_length=1, default='S')
-    valor_medio = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
-    aval_retorno = models.IntegerField(default=0)
     
     class Meta:
         app_label = 'providers'

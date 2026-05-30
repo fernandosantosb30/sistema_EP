@@ -89,32 +89,36 @@ def lista_provedores(request):
 
 @login_required
 def consulta_provedores(request):
-    # Inicializa o queryset (busca todos)
-    provedores = Provedor.objects.all()
+    # Inicializa o queryset
+    provedores = Provedor.objects.all().distinct() # .distinct() é importante ao filtrar por relacionamentos
     
     # Pega os dados do formulário
     fornecedor = request.GET.get('fornecedor')
     uf = request.GET.get('uf')
     cidade1 = request.GET.get('cidade1')
+    cidade2 = request.GET.get('cidade2')
+    cidade3 = request.GET.get('cidade3')
     
-    # Aplica os filtros se eles existirem
+    # Aplica os filtros
     if fornecedor:
-        provedores = provedores.filter(nome__icontains=fornecedor)
+        # Busca por nome OU razao social
+        provedores = provedores.filter(Q(nome__icontains=fornecedor) | Q(razao_social__icontains=fornecedor))
     
     if uf:
         provedores = provedores.filter(cidades__uf__iexact=uf)
         
     if cidade1:
         provedores = provedores.filter(cidades__nome__icontains=cidade1)
+    if cidade2:
+        provedores = provedores.filter(cidades__nome__icontains=cidade2)
+    if cidade3:
+        provedores = provedores.filter(cidades__nome__icontains=cidade3)
     
-    # DICA: O template espera uma lista chamada 'mapeamento'. 
-    # Então passamos 'provedores' com o nome 'mapeamento' para o template.
     context = {
         'mapeamento': provedores
     }
     
     return render(request, 'consulta.html', context)
-
 # --- GESTÃO DE CUSTO MÉDIO (INTEGRADA) ---
 
 @login_required

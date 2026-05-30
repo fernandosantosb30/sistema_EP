@@ -50,23 +50,22 @@
         </form>
     </div>
 
-    {% if mapeamento %}
-<div class="card bg-dark border-success p-4 mt-4">
-    <h5 class="text-success"><i class="bi bi-check-circle"></i> Resultado do Mapeamento</h5>
-    <div class="table-responsive">
-        <table class="table table-dark table-hover mt-3">
-            <thead class="table-success text-dark">
-                <tr>
-                    <th>Fornecedor</th>
-                    <th>Contato</th>
-                    <th>Trunk</th>
-                </tr>
-            </thead>
+{% if mapeamento %}
+    <div class="card bg-dark border-success p-4 mt-4">
+        <h5 class="text-success"><i class="bi bi-check-circle"></i> Resultado do Mapeamento</h5>
+        <div class="table-responsive">
+            <table class="table table-dark table-hover mt-3">
+                <thead class="table-success text-dark">
+                    <tr>
+                        <th>Fornecedor</th>
+                        <th>Contato</th>
+                        <th>Trunk</th>
+                    </tr>
+                </thead>
                 <tbody>
                     {% for item in mapeamento %}
                     <tr>
                         <td>{{ item.nome }}</td>
-                        
                         <td>
                             {% for c in item.contatos.all %}
                                 {{ c.nome }}{% if not forloop.last %}, {% endif %}
@@ -74,7 +73,6 @@
                                 <span class="text-muted">-</span>
                             {% endfor %}
                         </td>
-                        
                         <td>
                             {% if item.parceiro_bst %}
                                 <span class="badge bg-success">BST</span>
@@ -85,9 +83,14 @@
                     </tr>
                     {% endfor %}
                 </tbody>
-        </table>
+            </table>
+        </div>
     </div>
-</div>
+{% elif request.GET.fornecedor or request.GET.uf or request.GET.cidade1 or request.GET.cidade2 or request.GET.cidade3 %}
+    <div class="card bg-dark border-warning p-4 mt-4 text-center">
+        <h5 class="text-warning"><i class="bi bi-exclamation-triangle"></i> Sem resultados</h5>
+        <p class="text-white-50">Não foram encontrados provedores com os filtros aplicados.</p>
+    </div>
 {% endif %}
 
 </div>

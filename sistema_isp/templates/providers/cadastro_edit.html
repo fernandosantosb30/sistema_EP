@@ -137,7 +137,7 @@
                 {% endif %}
             </div>
             <table class="table table-sm table-dark table-hover mb-0">
-                <thead><tr class="small text-white-50"><th>NOME</th><th>CARGO</th><th>TELEFONE</th><th class="text-center">AÇÕES</th></tr></thead>
+                <thead><tr class="small text-white-50"><th>NOME</th><th>CARGO</th><th>TELEFONE</th><th class="text-center">E-MAIL</th></tr></thead>
                 <tbody>
                     {% for contato in provedor.contatos.all %}
                     <tr class="small align-middle"><td>{{ contato.nome }}</td><td>{{ contato.cargo|default:"-" }}</td><td>{{ contato.telefone }}</td>
@@ -150,99 +150,94 @@
     </div>
 </div>
 
-        <div class="mt-4 mb-5">
+       <div class="mt-4 mb-5">
             <button type="submit" class="btn btn-primary px-4 shadow">Salvar Provedor</button>
             <a href="{% url 'lista_provedores' %}" class="btn btn-info text-white px-4 ms-2">Cancelar</a>
         </div>
     </form>
 </div>
 
-{% if provedor.id %}
-    <div class="modal fade" id="modalCidade" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content bg-dark text-white border-secondary">
+<div class="modal fade" id="modalCidade" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content bg-dark text-white border-secondary">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title"><i class="bi bi-geo-alt"></i> Adicionar Localidade</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            {% if provedor.id %}
+            <form action="{% url 'adicionar_cidade' provedor.id %}" method="post">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="small text-white-50">Nome da Cidade</label>
+                        <input type="text" name="cidade_nome" class="form-control bg-dark text-white border-secondary" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="small text-white-50">UF</label>
+                        <input type="text" name="cidade_uf" class="form-control bg-dark text-white border-secondary" maxlength="2" required>
+                    </div>
+                </div>
+                <div class="modal-footer border-secondary">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar Cidade</button>
+                </div>
+            </form>
+            {% else %}
+            <div class="modal-body text-center">Salve o provedor antes de adicionar cidades.</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalImportarCSV" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content bg-dark text-white border-secondary">
+            {% if provedor.id %}
+            <form action="{% url 'importar_cidades_csv' provedor.id %}" method="post" enctype="multipart/form-data">
+                {% csrf_token %}
                 <div class="modal-header border-secondary">
-                    <h5 class="modal-title"><i class="bi bi-geo-alt"></i> Adicionar Localidade</h5>
+                    <h5 class="modal-title">Importar CSV</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
-                <form action="{% url 'adicionar_cidade' provedor.id %}" method="post">
-                    {% csrf_token %}
-                    <div class="modal-body">
-                        <div class="mb-3">
-                            <label class="small text-white-50">Nome da Cidade</label>
-                            <input type="text" name="cidade_nome" class="form-control bg-dark text-white border-secondary" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="small text-white-50">UF</label>
-                            <input type="text" name="cidade_uf" class="form-control bg-dark text-white border-secondary" maxlength="2" required>
-                        </div>
-                    </div>
-                    <div class="modal-footer border-secondary">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="submit" class="btn btn-primary">Salvar Cidade</button>
-                    </div>
-                </form>
-            </div>
+                <div class="modal-body">
+                    <input type="file" name="arquivo_csv" class="form-control bg-dark text-white border-secondary" accept=".csv" required>
+                </div>
+                <div class="modal-footer border-secondary">
+                    <button type="submit" class="btn btn-success w-100">Importar Cidades</button>
+                </div>
+            </form>
+            {% else %}
+            <div class="modal-body text-center">Salve o provedor antes de importar CSV.</div>
+            {% endif %}
         </div>
     </div>
+</div>
 
-    <div class="modal fade" id="modalImportarCSV" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content bg-dark text-white border-secondary">
-                <form action="{% url 'importar_cidades_csv' provedor.id %}" method="post" enctype="multipart/form-data">
-                    {% csrf_token %}
-                    <div class="modal-header border-secondary">
-                        <h5 class="modal-title">Importar CSV</h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="alert alert-secondary small py-2">
-                            <strong>Formato esperado:</strong> Nome da Cidade;UF
-                        </div>
-                        <input type="file" name="arquivo_csv" class="form-control bg-dark text-white border-secondary" accept=".csv" required>
-                    </div>
-                    <div class="modal-footer border-secondary">
-                        <button type="submit" class="btn btn-success w-100">Importar Cidades</button>
-                    </div>
-                </form>
-            </div>
+<div class="modal fade" id="modalContato" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content bg-dark text-white border-secondary">
+            {% if provedor.id %}
+            <form action="{% url 'adicionar_contato' provedor.id %}" method="post">
+                {% csrf_token %}
+                <div class="modal-header border-secondary">
+                    <h5 class="modal-title">Novo Contato</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="text" name="contato_nome" class="form-control mb-2" placeholder="Nome" required>
+                    <input type="text" name="contato_cargo" class="form-control mb-2" placeholder="Cargo">
+                    <input type="text" name="contato_telefone" class="form-control mb-2" placeholder="Telefone">
+                    <input type="email" name="contato_email" class="form-control mb-2" placeholder="E-mail">
+                </div>
+                <div class="modal-footer border-secondary">
+                    <button type="submit" class="btn btn-primary w-100">Salvar Contato</button>
+                </div>
+            </form>
+            {% else %}
+            <div class="modal-body text-center">Salve o provedor antes de adicionar contatos.</div>
+            {% endif %}
         </div>
     </div>
-
-    <div class="modal fade" id="modalContato" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content bg-dark text-white border-secondary">
-                <form action="{% url 'adicionar_contato' provedor.id %}" method="post">
-                    {% csrf_token %}
-                    <div class="modal-header border-secondary">
-                        <h5 class="modal-title">Novo Contato</h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="mb-2">
-                            <label class="small text-white-50">Nome</label>
-                            <input type="text" name="contato_nome" class="form-control bg-dark text-white border-secondary" required>
-                        </div>
-                        <div class="mb-2">
-                            <label class="small text-white-50">Cargo</label>
-                            <input type="text" name="contato_cargo" class="form-control bg-dark text-white border-secondary">
-                        </div>
-                        <div class="mb-2">
-                            <label class="small text-white-50">Telefone</label>
-                            <input type="text" name="contato_telefone" class="form-control bg-dark text-white border-secondary">
-                        </div>
-                        <div class="mb-2">
-                            <label class="small text-white-50">E-mail</label>
-                            <input type="email" name="contato_email" class="form-control bg-dark text-white border-secondary">
-                        </div>
-                    </div>
-                    <div class="modal-footer border-secondary">
-                        <button type="submit" class="btn btn-primary w-100">Salvar Contato</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-{% endif %}
+</div>
 
 {% endblock %}

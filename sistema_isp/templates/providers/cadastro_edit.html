@@ -19,33 +19,60 @@
         {% csrf_token %}
         
         <div class="card-custom mb-4 p-3 border rounded shadow-sm" style="background-color: rgba(255,255,255,0.05);">
-            <div class="header-section mb-3 fw-bold text-white"><i class="bi bi-person"></i> Identificação</div>
-            <div class="row g-3">
-                <div class="col-md-2">
-                    <label class="small text-white-50">Código</label>
-                    <input type="text" class="form-control bg-dark text-white border-secondary" value="{{ provedor.id|default:'Gerado ao salvar' }}" readonly>
-                </div>
-                <div class="col-md-6">
-                <label class="small text-white-50">Nome</label>
-                {{ form.nome }} </div>
-                    <input type="text" name="nome" class="form-control bg-dark text-white border-secondary" value="{{ provedor.nome|default:'' }}" required>
-                </div>
-                <div class="col-md-3 d-flex align-items-center pt-3">
-                    <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" name="ativo" id="switchAtivo" {% if provedor.ativo or not provedor %}checked{% endif %}>
-                        <label class="form-check-label text-white" for="switchAtivo">Ativo</label>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                <label class="small text-white-50">Razão Social</label>
-                {{ form.razao_social }}
-            </div>
-                <div class="col-md-6">
-                    <label class="small text-white-50">CNPJ</label>
-                    <input type="text" name="cnpj" class="form-control bg-dark text-white border-secondary" value="{{ provedor.cnpj|default:'' }}">
-                </div>
+    <div class="header-section mb-3 fw-bold text-white"><i class="bi bi-person"></i> Identificação</div>
+    <div class="row g-3">
+        <div class="col-md-2">
+            <label class="small text-white-50">Código</label>
+            <input type="text" class="form-control bg-dark text-white border-secondary" value="{{ provedor.id|default:'Gerado ao salvar' }}" readonly>
+        </div>
+
+        <div class="col-md-6">
+            <label class="small text-white-50">Nome</label>
+            {{ form.nome }}
+        </div>
+
+        <div class="col-md-3 d-flex align-items-center pt-3">
+            <div class="form-check form-switch">
+                {{ form.ativo }}
+                <label class="form-check-label text-white" for="id_ativo">Ativo</label>
             </div>
         </div>
+
+        <div class="col-md-6">
+            <label class="small text-white-50">Razão Social</label>
+            {{ form.razao_social }}
+        </div>
+
+        <div class="col-md-6">
+            <label class="small text-white-50">CNPJ</label>
+            {{ form.cnpj }}
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card-custom p-3 border rounded shadow-sm h-100" style="background-color: rgba(255,255,255,0.05);">
+            <div class="header-section text-white fw-bold mb-2">Meios Físicos</div>
+            <div class="form-check">{{ form.fibra }} <label class="text-white">Fibra</label></div>
+            <div class="form-check">{{ form.radio }} <label class="text-white">Rádio</label></div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card-custom p-3 border rounded shadow-sm h-100" style="background-color: rgba(255,255,255,0.05);">
+            <div class="header-section text-white fw-bold mb-2">Atuação/Serviços</div>
+            <div class="form-check">{{ form.link_dedicado }} <label class="text-white">Link Dedicado</label></div>
+            <div class="form-check">{{ form.link_banda_larga }} <label class="text-white">Link Banda Larga</label></div>
+            <div class="form-check">{{ form.zona_rural }} <label class="text-white">Zona Rural</label></div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card-custom p-3 border rounded shadow-sm h-100" style="background-color: rgba(255,255,255,0.05);">
+            <div class="header-section text-white fw-bold mb-2">Parceiros Trunk</div>
+            <div class="form-check">{{ form.parceiro_bst }} <label class="text-white">BST</label></div>
+        </div>
+    </div>
+</div>
 
         <div class="row g-3">
             </div>

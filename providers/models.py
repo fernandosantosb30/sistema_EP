@@ -1,4 +1,6 @@
 from django.db import models
+from django import forms
+from .models import Provedor
 
 class Provedor(models.Model):
     # Identificação
@@ -25,7 +27,7 @@ class Provedor(models.Model):
     observacao = models.TextField(blank=True, null=True)
     
     class Meta:
-        app_label = 'providers'  # <--- ESSA LINHA RESOLVE O ERRO
+        app_label = 'providers'
         verbose_name = 'Provedor'
         verbose_name_plural = 'Provedores'
 
@@ -92,3 +94,25 @@ class ContratoCusto(models.Model):
 
     def __str__(self):
         return f"{self.cidade}/{self.uf} - {self.servico} ({self.valor_mensal})"
+    
+class ProvedorForm(forms.ModelForm):
+    class Meta:
+        model = Provedor
+        fields = [
+            'nome', 'ativo', 'razao_social', 'cnpj', 
+            'parceiro_bst', 'fibra', 'radio', 
+            'link_dedicado', 'link_banda_larga', 'zona_rural'
+        ]
+        widgets = {
+            'nome': forms.TextInput(attrs={'class': 'form-control bg-dark text-white border-secondary'}),
+            'razao_social': forms.TextInput(attrs={'class': 'form-control bg-dark text-white border-secondary'}),
+            'cnpj': forms.TextInput(attrs={'class': 'form-control bg-dark text-white border-secondary'}),
+            'ativo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            # Adicione os novos para o visual do card
+            'fibra': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'radio': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'link_dedicado': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'link_banda_larga': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'zona_rural': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'parceiro_bst': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }

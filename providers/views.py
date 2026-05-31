@@ -7,6 +7,7 @@ import unicodedata
 import pandas as pd
 from sqlalchemy import create_engine
 from django.forms import modelform_factory
+from .models import Provedor, ProvedorForm
 
 # --- BIBLIOTECAS DJANGO ---
 from django.conf import settings
@@ -155,8 +156,13 @@ def get_cidade_form(): return modelform_factory(CidadeAtendida, fields="__all__"
 
 @login_required
 def editar_provedor(request, pk=None):
-    ProvedorForm = get_provedor_form()
-    provedor = get_object_or_404(Provedor, pk=pk) if pk else Provedor()
+    # Se pk existe, busca. Se falhar, retorna 404.
+    # Se não existe (novo cadastro), instancia um objeto vazio.
+    provedor = get_object_or_404(
+    Provedor.objects.prefetch_related('contatos', 'cidades'), 
+    pk=pk
+)
+
     if request.method == 'POST':
         form = ProvedorForm(request.POST, instance=provedor)
         if form.is_valid():
@@ -164,7 +170,11 @@ def editar_provedor(request, pk=None):
             return redirect('lista_provedores')
     else:
         form = ProvedorForm(instance=provedor)
-    return render(request, 'providers/cadastro_edit.html', {'form': form})
+    
+    return render(request, 'providers/cadastro_edit.html', {
+        'form': form,
+        'provedor': provedor # Isto garante que o template acesse {{ provedor.id }}
+    })
 
 @user_passes_test(e_admin) # Apenas ADMIN pode excluir
 @login_required

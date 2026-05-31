@@ -60,7 +60,7 @@
                                     <a href="{% url 'editar_provedor' p.id %}" class="btn btn-sm btn-link text-info p-0 me-2" title="Visualizar">
                                         <i class="bi bi-eye"></i>
                                     </a>
-                                    <a href="{% url 'editar_provedor' p.id %}" class="btn btn-sm btn-link text-warning p-0 me-2" title="Editar">
+                                    <a href="{% url 'editar_provedor' p.id %}">Editar</a>
                                         <i class="bi bi-pencil-square"></i>
                                     </a>
                                     {% if user.is_superuser %}

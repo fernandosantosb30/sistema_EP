@@ -82,24 +82,19 @@
     <div class="col-md-6">
         <div class="card-custom p-3 border rounded shadow-sm h-100" style="background-color: rgba(255,255,255,0.05);">
             <div class="d-flex justify-content-between align-items-center mb-2">
-                <div class="header-section text-lime fw-bold"><i class="bi bi-geo-alt"></i> Cidades</div>
-                <div class="d-flex gap-1">
-                    {% if user.is_superuser and provedor.id %}
-                        <a href="{% url 'excluir_todas_cidades' provedor.id %}" class="btn btn-sm btn-outline-danger py-0 px-2" title="Limpar todas" onclick="return confirm('Confirmar exclusão de todas as cidades?')">
-                            <i class="bi bi-trash3-fill"></i>
-                        </a>
-                    {% endif %}
-                    
-                    {% if provedor.id %}
-                        <button type="button" class="btn btn-sm btn-outline-success py-0 px-2" data-bs-toggle="modal" data-bs-target="#modalImportarCSV"><i class="bi bi-file-earmark-spreadsheet"></i> CSV</button>
-                        <button type="button" class="btn btn-sm btn-primary py-0 px-2" data-bs-toggle="modal" data-bs-target="#modalCidade">
-                            <i class="bi bi-plus-lg"></i>
-                        </button>
-                    {% else %}
-                        <button type="button" class="btn btn-sm btn-secondary py-0 px-2" disabled><i class="bi bi-plus-lg"></i></button>
-                    {% endif %}
-                </div>
+            <div class="header-section text-lime fw-bold"><i class="bi bi-geo-alt"></i> Cidades</div>
+            <div class="d-flex gap-1">
+                {% if provedor and provedor.id %}
+                    <button type="button" class="btn btn-sm btn-primary py-0 px-2" data-bs-toggle="modal" data-bs-target="#modalCidade">
+                        <i class="bi bi-plus-lg"></i>
+                    </button>
+                {% else %}
+                    <button type="button" class="btn btn-sm btn-secondary py-0 px-2" disabled title="Salve o provedor primeiro">
+                        <i class="bi bi-plus-lg"></i>
+                    </button>
+                {% endif %}
             </div>
+        </div>
             <table class="table table-sm table-dark table-hover mb-0">
                 <thead>
                     <tr class="small text-lime"><th>CIDADE</th><th>UF</th></tr>
@@ -121,12 +116,17 @@
         <div class="card-custom p-3 border rounded shadow-sm h-100" style="background-color: rgba(255,255,255,0.05);">
             <div class="d-flex justify-content-between align-items-center mb-2">
                 <div class="header-section text-lime fw-bold"><i class="bi bi-person-lines-fill"></i> Contatos</div>
-                {% if provedor.id %}
-                    <button type="button" class="btn btn-sm btn-primary py-0 px-2" data-bs-toggle="modal" data-bs-target="#modalContato"><i class="bi bi-plus-lg"></i></button>
-                {% else %}
-                    <button type="button" class="btn btn-sm btn-secondary py-0 px-2" disabled><i class="bi bi-plus-lg"></i></button>
-                {% endif %}
-            </div>
+                
+                    {% if provedor and provedor.id %}
+                        <button type="button" class="btn btn-sm btn-primary py-0 px-2" data-bs-toggle="modal" data-bs-target="#modalContato">
+                            <i class="bi bi-plus-lg"></i>
+                        </button>
+                    {% else %}
+                        <button type="button" class="btn btn-sm btn-secondary py-0 px-2" disabled title="Salve o provedor primeiro">
+                            <i class="bi bi-plus-lg"></i>
+                        </button>
+                    {% endif %}
+                </div>
             <table class="table table-sm table-dark table-hover mb-0">
                 <thead>
                     <tr class="small text-lime"><th>NOME</th><th>CARGO</th><th>TELEFONE</th><th class="text-center">E-MAIL</th></tr>

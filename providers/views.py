@@ -22,8 +22,7 @@ from django.forms import modelform_factory
 
 # --- MODELOS E FORMULÁRIOS LOCAIS ---
 from .models import Provedor, Contato, CidadeAtendida
-# Se você moveu para um arquivo forms.py, use a linha abaixo:
-from .models import Provedor, Contato, CidadeAtendida, ProvedorForm, ContatoForm, CidadeForm
+from .forms import ProvedorForm, ContatoForm, CidadeForm
 
 # --- UTILS / CONFIGURAÇÕES ---
 def get_db_engine():
@@ -158,28 +157,24 @@ def get_cidade_form(): return modelform_factory(CidadeAtendida, fields="__all__"
 
 @login_required
 def editar_provedor(request, pk=None):
+    # Se pk é fornecido, tenta buscar; se não, provedor será None (novo registro)
     provedor = None
     if pk:
-        # Busca segura, sem disparar 404 automaticamente se não existir
-        try:
-            provedor = Provedor.objects.prefetch_related('contatos', 'cidades').get(pk=pk)
-        except Provedor.DoesNotExist:
-            # Em vez de 404, redireciona ou avisa
-            return redirect('lista_provedores')
+        provedor = get_object_or_404(Provedor, pk=pk)
 
     if request.method == 'POST':
+        # Se provedor é None, cria um novo objeto. Se existe, edita o existente.
         form = ProvedorForm(request.POST, instance=provedor)
         if form.is_valid():
             form.save()
             return redirect('lista_provedores')
     else:
+        # Inicializa o form com a instância (vazia ou preenchida)
         form = ProvedorForm(instance=provedor)
-    
+
     return render(request, 'providers/cadastro_edit.html', {
         'form': form,
         'provedor': provedor,
-        'form_cidade': CidadeForm(),   # Adicione isso
-        'form_contato': ContatoForm(), # Adicione isso
     })
 
 @user_passes_test(e_admin) # Apenas ADMIN pode excluir

@@ -78,64 +78,74 @@
         <div class="row g-3">
             </div>
 
-<div class="modal fade" id="modalCidade" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content bg-dark border border-secondary text-white">
-            <div class="modal-header border-secondary">
-                <h5 class="modal-title text-lime">Adicionar Cidade</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+<div class="row g-3 mt-1"> 
+    <div class="col-md-6">
+        <div class="card-custom p-3 border rounded shadow-sm h-100" style="background-color: rgba(255,255,255,0.05);">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <div class="header-section text-lime fw-bold"><i class="bi bi-geo-alt"></i> Cidades</div>
+                <div class="d-flex gap-1">
+                    {% if user.is_superuser and provedor.id %}
+                        <a href="{% url 'excluir_todas_cidades' provedor.id %}" class="btn btn-sm btn-outline-danger py-0 px-2" title="Limpar todas" onclick="return confirm('Confirmar exclusão de todas as cidades?')">
+                            <i class="bi bi-trash3-fill"></i>
+                        </a>
+                    {% endif %}
+                    
+                    {% if provedor.id %}
+                        <button type="button" class="btn btn-sm btn-outline-success py-0 px-2" data-bs-toggle="modal" data-bs-target="#modalImportarCSV"><i class="bi bi-file-earmark-spreadsheet"></i> CSV</button>
+                        <button type="button" class="btn btn-sm btn-primary py-0 px-2" data-bs-toggle="modal" data-bs-target="#modalCidade">
+                            <i class="bi bi-plus-lg"></i>
+                        </button>
+                    {% else %}
+                        <button type="button" class="btn btn-sm btn-secondary py-0 px-2" disabled><i class="bi bi-plus-lg"></i></button>
+                    {% endif %}
+                </div>
             </div>
-            <form method="POST" action="{% url 'adicionar_cidade' provedor.id %}">
-                {% csrf_token %}
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="small text-white-50">Nome da Cidade</label>
-                        <input type="text" name="nome" class="form-control bg-dark text-white" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="small text-white-50">UF</label>
-                        <input type="text" name="uf" class="form-control bg-dark text-white" maxlength="2" required>
-                    </div>
-                </div>
-                <div class="modal-footer border-secondary">
-                    <button type="submit" class="btn btn-primary">Salvar Cidade</button>
-                </div>
-            </form>
+            <table class="table table-sm table-dark table-hover mb-0">
+                <thead>
+                    <tr class="small text-lime"><th>CIDADE</th><th>UF</th>
+                </thead>
+                <tbody>
+                    {% for cidade in provedor.cidades.all %}
+                    <tr class="small align-middle">
+                        <td>{{ cidade.nome }}</td><td>{{ cidade.uf }}</td>
+                        <td class="text-center">{% if user.is_superuser %}<a href="{% url 'excluir_cidade' cidade.id %}" class="text-danger" onclick="return confirm('Excluir?')"><i class="bi bi-trash"></i></a>{% else %}-{% endif %}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="3" class="text-center text-white-50 small py-2">{% if provedor.id %}Sem cidades.{% else %}Disponível após salvar.{% endif %}</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
-</div>
 
-<div class="modal fade" id="modalContato" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content bg-dark border border-secondary text-white">
-            <div class="modal-header border-secondary">
-                <h5 class="modal-title text-lime">Adicionar Contato</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+    <div class="col-md-6">
+        <div class="card-custom p-3 border rounded shadow-sm h-100" style="background-color: rgba(255,255,255,0.05);">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <div class="header-section text-lime fw-bold"><i class="bi bi-person-lines-fill"></i> Contatos</div>
+                {% if provedor.id %}
+                    <button type="button" class="btn btn-sm btn-primary py-0 px-2" data-bs-toggle="modal" data-bs-target="#modalContato"><i class="bi bi-plus-lg"></i></button>
+                {% else %}
+                    <button type="button" class="btn btn-sm btn-secondary py-0 px-2" disabled><i class="bi bi-plus-lg"></i></button>
+                {% endif %}
             </div>
-            <form method="POST" action="{% url 'adicionar_contato' provedor.id %}">
-                {% csrf_token %}
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="small text-white-50">Nome</label>
-                        <input type="text" name="nome" class="form-control bg-dark text-white" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="small text-white-50">Cargo</label>
-                        <input type="text" name="cargo" class="form-control bg-dark text-white">
-                    </div>
-                    <div class="mb-3">
-                        <label class="small text-white-50">Telefone</label>
-                        <input type="text" name="telefone" class="form-control bg-dark text-white">
-                    </div>
-                    <div class="mb-3">
-                        <label class="small text-white-50">E-mail</label>
-                        <input type="email" name="email" class="form-control bg-dark text-white">
-                    </div>
-                </div>
-                <div class="modal-footer border-secondary">
-                    <button type="submit" class="btn btn-primary">Salvar Contato</button>
-                </div>
-            </form>
+            <table class="table table-sm table-dark table-hover mb-0">
+                <thead>
+                    <tr class="small text-lime"><th>NOME</th><th>CARGO</th><th>TELEFONE</th><th class="text-center">E-MAIL</th></tr>
+                </thead>
+                <tbody>
+                    {% for contato in provedor.contatos.all %}
+                    <tr class="small align-middle">
+                        <td>{{ contato.nome }}</td><td>{{ contato.cargo|default:"-" }}</td><td>{{ contato.telefone }}</td>
+                        <td class="text-center">
+                            <button type="button" class="btn btn-link text-info p-0 me-1" data-bs-toggle="modal" data-bs-target="#modalEditarContato{{ contato.id }}"><i class="bi bi-pencil-square"></i></button>
+                            {% if user.is_superuser %}<a href="{% url 'excluir_contato' contato.id %}" class="text-danger" onclick="return confirm('Excluir?')"><i class="bi bi-trash"></i></a>{% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="4" class="text-center text-white-50 small py-2">Sem contatos.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
 </div>

@@ -30,6 +30,12 @@ body {
     border: 1px solid #444 !important;
 }
 
+.dark-force {
+    background-color: var(--ep-card) !important;
+    color: var(--ep-text) !important;
+    border: 1px solid var(--ep-border) !important;
+}
+
 .table-custom {
     background-color: #aeb47a;
 }

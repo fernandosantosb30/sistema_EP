@@ -1,6 +1,12 @@
 {% extends 'base.html' %}
 
 {% block content %}
+<h1>TESTE DE SINCRONIZAÇÃO</h1>
+<div class="alert alert-warning">
+    Debug: Provedor ID = {{ provedor.id }} | 
+    Cidades encontradas: {{ provedor.cidades.all.count }} | 
+    Contatos encontrados: {{ provedor.contatos.all.count }}
+</div>
 {% if messages %}
     {% for message in messages %}
         <div class="alert alert-danger alert-dismissible fade show" role="alert">

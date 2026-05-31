@@ -159,30 +159,26 @@ def get_cidade_form(): return modelform_factory(CidadeAtendida, fields="__all__"
 
 @login_required
 def editar_provedor(request, pk=None):
-    print(f"DEBUG: Acessando editar_provedor com pk={pk}")
-    # Se pk existir, busca o provedor. Se não, o provedor será None.
     provedor = None
     if pk:
-        provedor = get_object_or_404(
-            Provedor.objects.prefetch_related('contatos', 'cidades'), 
-            pk=pk
-        )
+        # Tenta buscar, mas se não achar, o código continua
+        try:
+            provedor = Provedor.objects.prefetch_related('contatos', 'cidades').get(pk=pk)
+        except Provedor.DoesNotExist:
+            messages.error(request, "Provedor não encontrado.")
+            return redirect('lista_provedores')
 
     if request.method == 'POST':
-        # Se provedor é None, o form cria um novo registro. Se existe, edita.
         form = ProvedorForm(request.POST, instance=provedor)
         if form.is_valid():
             provedor_salvo = form.save()
-            # Se for novo (pk era None), redireciona para a edição do novo objeto salvo
-            if not pk:
-                return redirect('editar_provedor', pk=provedor_salvo.pk)
-            return redirect('lista_provedores')
+            return redirect('editar_provedor', pk=provedor_salvo.pk)
     else:
         form = ProvedorForm(instance=provedor)
     
     return render(request, 'providers/cadastro_edit.html', {
         'form': form,
-        'provedor': provedor  # Se for novo, será None
+        'provedor': provedor
     })
 
 @user_passes_test(e_admin) # Apenas ADMIN pode excluir

@@ -8,7 +8,7 @@ import pandas as pd
 from sqlalchemy import create_engine
 from django.forms import modelform_factory
 from .models import Provedor, ProvedorForm
-from .models import Provedor, CidadeAtendida
+from .models import ProvedorForm, ContatoForm, CidadeForm
 
 # --- BIBLIOTECAS DJANGO ---
 from django import forms
@@ -161,24 +161,26 @@ def get_cidade_form(): return modelform_factory(CidadeAtendida, fields="__all__"
 def editar_provedor(request, pk=None):
     provedor = None
     if pk:
-        # Tenta buscar, mas se não achar, o código continua
+        # Busca segura, sem disparar 404 automaticamente se não existir
         try:
             provedor = Provedor.objects.prefetch_related('contatos', 'cidades').get(pk=pk)
         except Provedor.DoesNotExist:
-            messages.error(request, "Provedor não encontrado.")
+            # Em vez de 404, redireciona ou avisa
             return redirect('lista_provedores')
 
     if request.method == 'POST':
         form = ProvedorForm(request.POST, instance=provedor)
         if form.is_valid():
-            provedor_salvo = form.save()
-            return redirect('editar_provedor', pk=provedor_salvo.pk)
+            form.save()
+            return redirect('lista_provedores')
     else:
         form = ProvedorForm(instance=provedor)
     
     return render(request, 'providers/cadastro_edit.html', {
         'form': form,
-        'provedor': provedor
+        'provedor': provedor,
+        'form_cidade': CidadeForm(),   # Adicione isso
+        'form_contato': ContatoForm(), # Adicione isso
     })
 
 @user_passes_test(e_admin) # Apenas ADMIN pode excluir
@@ -205,21 +207,34 @@ def adicionar_contato(request, provedor_id):
     return redirect('editar_provedor', pk=provedor.id) # Fallback seguro
 
 @login_required
-def editar_contato(request, contato_id):
-    contato = get_object_or_404(Contato, id=contato_id)
-    # Cria o form rapidamente
-    ContatoForm = modelform_factory(Contato, fields=['nome', 'cargo', 'telefone', 'email'])
+def editar_provedor(request, pk=None):
+    # 1. Defina a variável inicial como None
+    provedor = None
     
+    # 2. Só tenta buscar se o PK existir
+    if pk is not None:
+        try:
+            # Busque o objeto apenas se tiver ID
+            provedor = Provedor.objects.prefetch_related('contatos', 'cidades').get(pk=pk)
+        except Provedor.DoesNotExist:
+            # Se alguém digitou um ID que não existe, jogue de volta para a lista
+            return redirect('lista_provedores')
+
     if request.method == 'POST':
-        form = ContatoForm(request.POST, instance=contato)
+        # Se provedor é None, form cria novo. Se não, edita.
+        form = ProvedorForm(request.POST, instance=provedor)
         if form.is_valid():
             form.save()
-            # Volta para a edição do mesmo provedor para continuar trabalhando
-            return redirect('editar_provedor', pk=contato.provedor.id)
+            return redirect('lista_provedores')
+    else:
+        form = ProvedorForm(instance=provedor)
     
-    # Se for GET, você precisa tratar onde exibir este formulário. 
-    # Como ele está em um modal, talvez você não precise de render aqui.
-    return redirect('editar_provedor', pk=contato.provedor.id)
+    return render(request, 'providers/cadastro_edit.html', {
+        'form': form,
+        'provedor': provedor,
+        'form_cidade': CidadeForm(),  # Importe seu formulário de Cidade
+        'form_contato': ContatoForm(), # Importe seu formulário de Contato
+    })
 
 @user_passes_test(e_admin)
 @login_required

@@ -1,6 +1,6 @@
 from django.db import models
 from django import forms
-from .models import Contato
+from .models import Provedor, Contato, CidadeAtendida
 
 class Provedor(models.Model):
     # Identificação
@@ -121,4 +121,13 @@ class ContatoForm(forms.ModelForm):
             'cargo': forms.TextInput(attrs={'class': 'form-control bg-dark text-white'}),
             'telefone': forms.TextInput(attrs={'class': 'form-control bg-dark text-white'}),
             'email': forms.EmailInput(attrs={'class': 'form-control bg-dark text-white'}),
+        }
+        
+class CidadeForm(forms.ModelForm):
+    class Meta:
+        model = CidadeAtendida
+        fields = ['nome', 'uf']
+        widgets = {
+            'nome': forms.TextInput(attrs={'class': 'form-control bg-dark text-white'}),
+            'uf': forms.TextInput(attrs={'class': 'form-control bg-dark text-white'}),
         }

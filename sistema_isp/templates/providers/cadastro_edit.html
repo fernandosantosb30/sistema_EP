@@ -156,4 +156,30 @@
     </form>
 </div>
 
+<div class="modal fade" id="modalCidade" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content bg-dark text-white">
+            <form method="post" action="{% url 'adicionar_cidade' provedor.id %}">
+                {% csrf_token %}
+                <div class="modal-header"><h5 class="modal-title">Nova Cidade</h5></div>
+                <div class="modal-body">{{ form_cidade.as_p }}</div>
+                <div class="modal-footer"><button type="submit" class="btn btn-primary">Salvar</button></div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalContato" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content bg-dark text-white">
+            <form method="post" action="{% url 'adicionar_contato' provedor.id %}">
+                {% csrf_token %}
+                <div class="modal-header"><h5 class="modal-title">Novo Contato</h5></div>
+                <div class="modal-body">{{ form_contato.as_p }}</div>
+                <div class="modal-footer"><button type="submit" class="btn btn-primary">Salvar</button></div>
+            </form>
+        </div>
+    </div>
+</div>
+
 {% endblock %}

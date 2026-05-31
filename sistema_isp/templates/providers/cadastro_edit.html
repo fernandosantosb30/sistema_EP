@@ -102,16 +102,15 @@
             </div>
             <table class="table table-sm table-dark table-hover mb-0">
                 <thead>
-                    <tr class="small text-lime"><th>CIDADE</th><th>UF</th>
+                    <tr class="small text-lime"><th>CIDADE</th><th>UF</th></tr>
                 </thead>
                 <tbody>
                     {% for cidade in provedor.cidades.all %}
                     <tr class="small align-middle">
                         <td>{{ cidade.nome }}</td><td>{{ cidade.uf }}</td>
-                        <td class="text-center">{% if user.is_superuser %}<a href="{% url 'excluir_cidade' cidade.id %}" class="text-danger" onclick="return confirm('Excluir?')"><i class="bi bi-trash"></i></a>{% else %}-{% endif %}</td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="3" class="text-center text-white-50 small py-2">{% if provedor.id %}Sem cidades.{% else %}Disponível após salvar.{% endif %}</td></tr>
+                    <tr><td colspan="2" class="text-center text-white-50 small py-2">{% if provedor.id %}Sem cidades.{% else %}Disponível após salvar.{% endif %}</td></tr>
                     {% endfor %}
                 </tbody>
             </table>

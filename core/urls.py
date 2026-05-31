@@ -21,7 +21,7 @@ urlpatterns = [
     
     # Gestão de Provedores
     path('provedores/', providers_views.lista_provedores, name='lista_provedores'), 
-    path('provedores/novo/', providers_views.editar_provedor, name='cadastrar_provedor'),
+    path('provedores/novo/', providers_views.editar_provedor, name='editar_provedor'),
     path('provedores/editar/<int:pk>/', providers_views.editar_provedor, name='editar_provedor'),
     path('provedores/excluir/<int:pk>/', providers_views.excluir_provedor, name='excluir_provedor'),
     

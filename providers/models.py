@@ -1,5 +1,6 @@
 from django.db import models
 from django import forms
+from .models import Contato
 
 class Provedor(models.Model):
     # Identificação
@@ -109,4 +110,15 @@ class ProvedorForm(forms.ModelForm):
             'link_banda_larga': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'zona_rural': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'parceiro_bst': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+        
+class ContatoForm(forms.ModelForm):
+    class Meta:
+        model = Contato
+        fields = ['nome', 'cargo', 'telefone', 'email']
+        widgets = {
+            'nome': forms.TextInput(attrs={'class': 'form-control bg-dark text-white'}),
+            'cargo': forms.TextInput(attrs={'class': 'form-control bg-dark text-white'}),
+            'telefone': forms.TextInput(attrs={'class': 'form-control bg-dark text-white'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control bg-dark text-white'}),
         }

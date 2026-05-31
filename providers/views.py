@@ -8,8 +8,10 @@ import pandas as pd
 from sqlalchemy import create_engine
 from django.forms import modelform_factory
 from .models import Provedor, ProvedorForm
+from .models import Provedor, CidadeAtendida
 
 # --- BIBLIOTECAS DJANGO ---
+from django import forms
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
@@ -19,6 +21,7 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 from django.http import HttpResponse
 from django.shortcuts import render, get_object_or_404, redirect
+from django.forms import modelform_factory
 
 # --- MODELOS LOCAIS ---
 from .models import Provedor, Contato, CidadeAtendida
@@ -156,24 +159,29 @@ def get_cidade_form(): return modelform_factory(CidadeAtendida, fields="__all__"
 
 @login_required
 def editar_provedor(request, pk=None):
-    # Se pk existe, busca. Se falhar, retorna 404.
-    # Se não existe (novo cadastro), instancia um objeto vazio.
-    provedor = get_object_or_404(
-    Provedor.objects.prefetch_related('contatos', 'cidades'), 
-    pk=pk
-)
+    # Se pk existir, busca o provedor. Se não, o provedor será None.
+    provedor = None
+    if pk:
+        provedor = get_object_or_404(
+            Provedor.objects.prefetch_related('contatos', 'cidades'), 
+            pk=pk
+        )
 
     if request.method == 'POST':
+        # Se provedor é None, o form cria um novo registro. Se existe, edita.
         form = ProvedorForm(request.POST, instance=provedor)
         if form.is_valid():
-            form.save()
+            provedor_salvo = form.save()
+            # Se for novo (pk era None), redireciona para a edição do novo objeto salvo
+            if not pk:
+                return redirect('editar_provedor', pk=provedor_salvo.pk)
             return redirect('lista_provedores')
     else:
         form = ProvedorForm(instance=provedor)
     
     return render(request, 'providers/cadastro_edit.html', {
         'form': form,
-        'provedor': provedor # Isto garante que o template acesse {{ provedor.id }}
+        'provedor': provedor  # Se for novo, será None
     })
 
 @user_passes_test(e_admin) # Apenas ADMIN pode excluir
@@ -186,29 +194,35 @@ def excluir_provedor(request, pk):
 
 @login_required
 def adicionar_contato(request, provedor_id):
-    # A variável ContatoForm agora é definida localmente
-    ContatoForm = get_form(Contato) 
+    ContatoForm = modelform_factory(Contato, fields=['nome', 'cargo', 'telefone', 'email'])
     provedor = get_object_or_404(Provedor, id=provedor_id)
+    
     if request.method == 'POST':
         form = ContatoForm(request.POST)
         if form.is_valid():
-            c = form.save(commit=False); c.provedor = provedor; c.save()
-            return redirect('lista_provedores')
-    return render(request, 'providers/cadastro.html', {'form': ContatoForm()})
+            contato = form.save(commit=False)
+            contato.provedor = provedor
+            contato.save()
+            return redirect('editar_provedor', pk=provedor.id) # Melhor voltar para a edição do provedor
+    
+    return redirect('editar_provedor', pk=provedor.id) # Fallback seguro
 
 @login_required
 def editar_contato(request, contato_id):
-    # Definindo o form localmente para evitar erros de importação
-    ContatoForm = get_form(Contato)
     contato = get_object_or_404(Contato, id=contato_id)
+    # Cria o form rapidamente
+    ContatoForm = modelform_factory(Contato, fields=['nome', 'cargo', 'telefone', 'email'])
+    
     if request.method == 'POST':
         form = ContatoForm(request.POST, instance=contato)
         if form.is_valid():
             form.save()
-            return redirect('lista_provedores')
-    else:
-        form = ContatoForm(instance=contato)
-    return render(request, 'providers/cadastro.html', {'form': form})
+            # Volta para a edição do mesmo provedor para continuar trabalhando
+            return redirect('editar_provedor', pk=contato.provedor.id)
+    
+    # Se for GET, você precisa tratar onde exibir este formulário. 
+    # Como ele está em um modal, talvez você não precise de render aqui.
+    return redirect('editar_provedor', pk=contato.provedor.id)
 
 @user_passes_test(e_admin)
 @login_required
@@ -220,14 +234,19 @@ def excluir_contato(request, contato_id):
 
 @login_required
 def adicionar_cidade(request, provedor_id):
-    CidadeForm = get_cidade_form()
     provedor = get_object_or_404(Provedor, id=provedor_id)
+    CidadeForm = modelform_factory(CidadeAtendida, fields=['nome', 'uf'])
+    
     if request.method == 'POST':
         form = CidadeForm(request.POST)
         if form.is_valid():
-            c = form.save(commit=False); c.provedor = provedor; c.save()
-            return redirect('lista_provedores')
-    return render(request, 'providers/cadastro.html', {'form': CidadeForm()})
+            cidade = form.save(commit=False)
+            cidade.provedor = provedor
+            cidade.save()
+            # Volta para a edição do mesmo provedor
+            return redirect('editar_provedor', pk=provedor.id)
+            
+    return redirect('editar_provedor', pk=provedor.id)
 
 @user_passes_test(e_admin)
 @login_required
@@ -284,11 +303,39 @@ def importar_e_mapear_projeto(request):
 @login_required
 def importar_cidades_csv(request, provedor_id):
     provedor = get_object_or_404(Provedor, id=provedor_id)
+    
     if request.method == 'POST' and request.FILES.get('arquivo_csv'):
-        csv_file = request.FILES['arquivo_csv']
-        # Lógica flexível: ignora espaços, maiúsculas e tipos de separadores
-        df = pd.read_csv(csv_file, sep=None, engine='python')
-        for _, row in df.iterrows():
-            nome_cidade = str(row.iloc[0]).strip()
-            CidadeAtendida.objects.create(provedor=provedor, nome=nome_cidade)
-    return redirect('lista_provedores')
+        try:
+            csv_file = request.FILES['arquivo_csv']
+            # O engine='python' com sep=None detecta automaticamente o separador (vírgula, ponto e vírgula, etc.)
+            df = pd.read_csv(csv_file, sep=None, engine='python')
+            
+            novos = 0
+            existentes = 0
+            
+            for _, row in df.iterrows():
+                # Normaliza para string, remove espaços extras e transforma em maiúsculas
+                nome_cidade = str(row.iloc[0]).strip().upper()
+                # Assume que a segunda coluna é a UF, se existir
+                uf_cidade = str(row.iloc[1]).strip().upper() if len(row) > 1 else "XX"
+                
+                if nome_cidade:
+                    # Tenta buscar ou criar: se já existir a combinação provedor + nome + uf, ele ignora
+                    obj, criado = CidadeAtendida.objects.get_or_create(
+                        provedor=provedor, 
+                        nome=nome_cidade,
+                        uf=uf_cidade
+                    )
+                    
+                    if criado:
+                        novos += 1
+                    else:
+                        existentes += 1
+            
+            messages.success(request, f"Importação concluída: {novos} novas cidades adicionadas. ({existentes} já existiam e foram ignoradas).")
+            
+        except Exception as e:
+            messages.error(request, f"Erro ao processar o arquivo: {str(e)}")
+            
+    # Redireciona de volta para a tela de edição do provedor para que o usuário veja o resultado
+    return redirect('editar_provedor', pk=provedor.id)

@@ -159,6 +159,7 @@ def get_cidade_form(): return modelform_factory(CidadeAtendida, fields="__all__"
 
 @login_required
 def editar_provedor(request, pk=None):
+    print(f"DEBUG: Acessando editar_provedor com pk={pk}")
     # Se pk existir, busca o provedor. Se não, o provedor será None.
     provedor = None
     if pk:

@@ -7,7 +7,7 @@
     <title>Ep Conexões & Negócios</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
-    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=1.1">
     <style>
     :root { 
         /* Cores Ep Conexões - Padrão Image 2 */
@@ -176,11 +176,10 @@
 
 {% block extra_scripts %}
 <script>
-    function confirmarLogout() {
-        if (confirm("Realmente deseja sair do sistema?")) {
-            document.getElementById('logout-form').submit();
-        }
-    }
+    document.addEventListener('DOMContentLoaded', function() {
+        // Seu código aqui só será executado quando o HTML estiver 100% carregado
+        // Isso evita o erro de "null" ou "undefined" ao buscar elementos
+    });
 </script>
 {% endblock %}
 </body>

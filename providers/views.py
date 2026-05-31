@@ -6,9 +6,6 @@ import unicodedata
 # --- BIBLIOTECAS DE TERCEIROS ---
 import pandas as pd
 from sqlalchemy import create_engine
-from django.forms import modelform_factory
-from .models import Provedor, ProvedorForm
-from .models import ProvedorForm, ContatoForm, CidadeForm
 
 # --- BIBLIOTECAS DJANGO ---
 from django import forms
@@ -23,8 +20,10 @@ from django.http import HttpResponse
 from django.shortcuts import render, get_object_or_404, redirect
 from django.forms import modelform_factory
 
-# --- MODELOS LOCAIS ---
+# --- MODELOS E FORMULÁRIOS LOCAIS ---
 from .models import Provedor, Contato, CidadeAtendida
+# Se você moveu para um arquivo forms.py, use a linha abaixo:
+from .models import Provedor, Contato, CidadeAtendida, ProvedorForm, ContatoForm, CidadeForm
 
 # --- UTILS / CONFIGURAÇÕES ---
 def get_db_engine():
@@ -193,18 +192,14 @@ def excluir_provedor(request, pk):
 
 @login_required
 def adicionar_contato(request, provedor_id):
-    ContatoForm = modelform_factory(Contato, fields=['nome', 'cargo', 'telefone', 'email'])
     provedor = get_object_or_404(Provedor, id=provedor_id)
-    
     if request.method == 'POST':
-        form = ContatoForm(request.POST)
+        form = ContatoForm(request.POST) # Usa a classe importada!
         if form.is_valid():
             contato = form.save(commit=False)
             contato.provedor = provedor
             contato.save()
-            return redirect('editar_provedor', pk=provedor.id) # Melhor voltar para a edição do provedor
-    
-    return redirect('editar_provedor', pk=provedor.id) # Fallback seguro
+    return redirect('editar_provedor', pk=provedor.id)
 
 @login_required
 def editar_provedor(request, pk=None):

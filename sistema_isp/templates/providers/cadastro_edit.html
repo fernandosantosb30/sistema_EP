@@ -150,41 +150,6 @@
     </div>
 </div>
 
-                        <div class="d-flex gap-1">
-                    {% if provedor and provedor.id %}
-                        <a href="#" class="btn btn-sm btn-outline-danger py-0 px-2" title="Excluir todas"><i class="bi bi-trash"></i></a>
-                        <a href="#" class="btn btn-sm btn-outline-secondary py-0 px-2" title="CSV"><i class="bi bi-file-earmark-spreadsheet"></i></a>
-                        
-                        <button type="button" class="btn btn-sm btn-primary py-0 px-2" data-bs-toggle="modal" data-bs-target="#modalCidade">
-                            <i class="bi bi-plus-lg"></i>
-                        </button>
-                    {% else %}
-                        <button type="button" class="btn btn-sm btn-secondary py-0 px-2" disabled><i class="bi bi-plus-lg"></i></button>
-                    {% endif %}
-                </div>
-
-            <table class="table table-sm table-dark table-hover mb-0">
-                <thead>
-                    <tr class="small text-lime"><th>NOME</th><th>CARGO</th><th>TELEFONE</th><th class="text-center">E-MAIL</th></tr>
-                </thead>
-                <tbody>
-                    {% for contato in provedor.contatos.all %}
-                    <tr class="small align-middle">
-                        <td>{{ contato.nome }}</td><td>{{ contato.cargo|default:"-" }}</td><td>{{ contato.telefone }}</td>
-                        <td class="text-center">
-                            <button type="button" class="btn btn-link text-info p-0 me-1" data-bs-toggle="modal" data-bs-target="#modalEditarContato{{ contato.id }}"><i class="bi bi-pencil-square"></i></button>
-                            {% if user.is_superuser %}<a href="{% url 'excluir_contato' contato.id %}" class="text-danger" onclick="return confirm('Excluir?')"><i class="bi bi-trash"></i></a>{% endif %}
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr><td colspan="4" class="text-center text-white-50 small py-2">Sem contatos.</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
         <div class="mt-4 mb-5">
             <button type="submit" class="btn btn-primary px-4 shadow">Salvar Provedor</button>
             <a href="{% url 'lista_provedores' %}" class="btn btn-info text-white px-4 ms-2">Cancelar</a>

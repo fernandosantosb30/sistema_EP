@@ -3,6 +3,7 @@ from django.urls import path
 from django.contrib.auth import views as auth_views
 from django.views.generic.base import RedirectView
 from providers import views as providers_views
+from providers import views
 
 urlpatterns = [
     path('', RedirectView.as_view(url='/login/'), name='index'),
@@ -21,7 +22,7 @@ urlpatterns = [
     
     # Gestão de Provedores
     path('provedores/', providers_views.lista_provedores, name='lista_provedores'), 
-    path('provedores/novo/', providers_views.editar_provedor, name='cadastrar_provedor'),
+    path('provedores/novo/', views.editar_provedor, name='cadastrar_provedor'),
     path('provedores/editar/<int:pk>/', providers_views.editar_provedor, name='editar_provedor'),
     path('provedores/excluir/<int:pk>/', providers_views.excluir_provedor, name='excluir_provedor'),
     

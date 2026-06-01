@@ -27,13 +27,13 @@ class ProvedorForm(forms.ModelForm):
 class ContatoForm(forms.ModelForm):
     class Meta:
         model = Contato
-        fields = ['nome', 'cargo', 'telefone', 'email', 'prioridade'] # Inclua aqui
+        fields = ['nome', 'cargo', 'telefone', 'email',] # Inclua aqui
         widgets = {
             'nome': forms.TextInput(attrs={'class': 'form-control bg-dark text-white'}),
             'cargo': forms.TextInput(attrs={'class': 'form-control bg-dark text-white'}),
             'telefone': forms.TextInput(attrs={'class': 'form-control bg-dark text-white'}),
             'email': forms.EmailInput(attrs={'class': 'form-control bg-dark text-white'}),
-            'prioridade': forms.NumberInput(attrs={'class': 'form-control bg-dark text-white'}), # Adicione o widget
+             # Adicione o widget
         }
         
 class CidadeForm(forms.ModelForm):

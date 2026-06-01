@@ -55,15 +55,15 @@
         <h5 class="text-success"><i class="bi bi-check-circle"></i> Resultado do Mapeamento</h5>
         <div class="table-responsive">
             <table class="table table-dark table-hover mt-3">
-                    <thead class="table-success text-dark">
-                        <tr>
-                            <th>Fornecedor</th>
-                            <th>Atendente</th>
-                            <th>Contato</th>
-                            <th>Trunk</th>
-                            <th>Ações</th>
-                        </tr>
-                    </thead>
+                <thead class="table-success text-dark">
+                    <tr>
+                        <th>Fornecedor</th>
+                        <th>Atendente</th>
+                        <th>Contato</th>
+                        <th>Trunk</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
                 <tbody>
                     {% for item in mapeamento %}
                     <tr>
@@ -96,13 +96,14 @@
             </table>
         </div>
     </div>
-{% endif %}
-
-{% elif request.GET.fornecedor or request.GET.uf or request.GET.cidade1 or request.GET.cidade2 or request.GET.cidade3 %}
-    <div class="card bg-dark border-warning p-4 mt-4 text-center">
-        <h5 class="text-warning"><i class="bi bi-exclamation-triangle"></i> Sem resultados</h5>
-        <p class="text-white-50">Não foram encontrados provedores com os filtros aplicados.</p>
-    </div>
+{% else %}
+    {# Apenas exibe o aviso se o usuário buscou e não encontrou nada #}
+    {% if request.GET.fornecedor or request.GET.uf or request.GET.cidade1 or request.GET.cidade2 or request.GET.cidade3 %}
+        <div class="card bg-dark border-warning p-4 mt-4 text-center">
+            <h5 class="text-warning"><i class="bi bi-exclamation-triangle"></i> Sem resultados</h5>
+            <p class="text-white-50">Não foram encontrados provedores com os filtros aplicados.</p>
+        </div>
+    {% endif %}
 {% endif %}
 
 </div>

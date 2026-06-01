@@ -161,16 +161,19 @@
 <div class="modal fade" id="modalCidade" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content bg-dark text-white">
-            {% if provedor.id %}
-            <form method="post" action="{% url 'adicionar_cidade' provedor.id %}">
-                {% csrf_token %}
-                <div class="modal-header"><h5 class="modal-title">Nova Cidade</h5></div>
+            {% if provedor and provedor.id %}
+                <form method="post" action="{% url 'adicionar_cidade' provedor.id %}">
+                    {% csrf_token %}
+                    <div class="modal-header"><h5 class="modal-title">Nova Cidade</h5></div>
+                    <div class="modal-body">{{ form_cidade.as_p }}</div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-primary">Salvar</button>
+                    </div>
+                </form>
+            {% else %}
                 <div class="modal-body">
-                    {{ form_cidade.as_p }} </div>
-                <div class="modal-footer">
-                    <button type="submit" class="btn btn-primary">Salvar</button>
+                    <p>Salve o provedor primeiro para adicionar cidades.</p>
                 </div>
-            </form>
             {% endif %}
         </div>
     </div>

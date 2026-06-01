@@ -23,6 +23,15 @@ from django.forms import modelform_factory
 # --- MODELOS E FORMULÁRIOS LOCAIS ---
 from .models import Provedor, Contato, CidadeAtendida
 from .forms import ProvedorForm, ContatoForm, CidadeForm
+from django.views.generic import ListView
+from .models import Provedor
+
+#Paginator 
+class ListaProvedoresView(ListView):
+    model = Provedor
+    template_name = 'providers/lista_provedores.html'
+    context_object_name = 'provedores'
+    paginate_by = 10
 
 # --- UTILS / CONFIGURAÇÕES ---
 def get_db_engine():
@@ -80,14 +89,18 @@ def home_view(request):
 
 @login_required
 def lista_provedores(request):
-    # REMOVIDO: .order_by('-data_cadastro') temporariamente
-    queryset = Provedor.objects.all() 
+    queryset = Provedor.objects.all().order_by('-id')
+    paginator = Paginator(queryset, 10)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
     
-    # Adicione este print para ver no terminal do servidor do Render o que está acontecendo
+    # Log para debug no terminal do Render
     print(f"Total de registros encontrados: {queryset.count()}") 
     
-    # Se aqui o count for > 0, o problema está na paginação ou no template HTML
-    return render(request, 'providers/lista.html', {'provedores': queryset, 'total_registros': queryset.count()})
+    return render(request, 'providers/lista.html', {
+        'page_obj': page_obj,  # É esta variável que o template vai usar
+        'total_registros': queryset.count()
+    })
 
 @login_required
 def consulta_provedores(request):

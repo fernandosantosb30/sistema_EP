@@ -97,13 +97,14 @@
         </div>
         
         <table class="table table-sm table-dark table-hover mb-0">
-            <thead>
-                <tr class="small text-lime"><th>CIDADE</th><th>UF</th><th class="text-center">AÇÃO</th></tr>
+    <thead>
+        <tr class="small text-lime"><th>CIDADE</th><th>UF</th><th class="text-center">AÇÃO</th></tr>
             </thead>
             <tbody>
                 {% for cidade in provedor.cidades.all %}
                 <tr class="small align-middle">
-                    <td>{{ cidade.nome }}</td><td>{{ cidade.uf }}</td>
+                    <td>{{ cidade.nome }}</td>
+                    <td>{{ cidade.uf }}</td>
                     <td class="text-center">
                         <a href="{% url 'excluir_cidade' cidade.id %}" class="text-danger"><i class="bi bi-trash"></i></a>
                     </td>
@@ -160,12 +161,17 @@
 <div class="modal fade" id="modalCidade" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content bg-dark text-white">
+            {% if provedor.id %}
             <form method="post" action="{% url 'adicionar_cidade' provedor.id %}">
                 {% csrf_token %}
                 <div class="modal-header"><h5 class="modal-title">Nova Cidade</h5></div>
-                <div class="modal-body">{{ form_cidade.as_p }}</div>
-                <div class="modal-footer"><button type="submit" class="btn btn-primary">Salvar</button></div>
+                <div class="modal-body">
+                    {{ form_cidade.as_p }} </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary">Salvar</button>
+                </div>
             </form>
+            {% endif %}
         </div>
     </div>
 </div>

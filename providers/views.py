@@ -155,28 +155,6 @@ def get_provedor_form(): return modelform_factory(Provedor, fields="__all__")
 def get_contato_form(): return modelform_factory(Contato, fields="__all__")
 def get_cidade_form(): return modelform_factory(CidadeAtendida, fields="__all__")
 
-@login_required
-def editar_provedor(request, pk=None):
-    # Se pk é fornecido, tenta buscar; se não, provedor será None (novo registro)
-    provedor = None
-    if pk:
-        provedor = get_object_or_404(Provedor, pk=pk)
-
-    if request.method == 'POST':
-        # Se provedor é None, cria um novo objeto. Se existe, edita o existente.
-        form = ProvedorForm(request.POST, instance=provedor)
-        if form.is_valid():
-            form.save()
-            return redirect('lista_provedores')
-    else:
-        # Inicializa o form com a instância (vazia ou preenchida)
-        form = ProvedorForm(instance=provedor)
-
-    return render(request, 'providers/cadastro_edit.html', {
-        'form': form,
-        'provedor': provedor,
-    })
-
 @user_passes_test(e_admin) # Apenas ADMIN pode excluir
 @login_required
 def excluir_provedor(request, pk):

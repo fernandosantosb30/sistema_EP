@@ -182,12 +182,20 @@
 <div class="modal fade" id="modalContato" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content bg-dark text-white">
-            <form method="post" action="{% url 'adicionar_contato' provedor.id %}">
-                {% csrf_token %}
-                <div class="modal-header"><h5 class="modal-title">Novo Contato</h5></div>
-                <div class="modal-body">{{ form_contato.as_p }}</div>
-                <div class="modal-footer"><button type="submit" class="btn btn-primary">Salvar</button></div>
-            </form>
+            {% if provedor and provedor.id %}
+                <form method="post" action="{% url 'adicionar_contato' provedor.id %}">
+                    {% csrf_token %}
+                    <div class="modal-header"><h5 class="modal-title">Novo Contato</h5></div>
+                    <div class="modal-body">{{ form_contato.as_p }}</div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-primary">Salvar</button>
+                    </div>
+                </form>
+            {% else %}
+                <div class="modal-body">
+                    <p>Salve o provedor primeiro para adicionar contatos.</p>
+                </div>
+            {% endif %}
         </div>
     </div>
 </div>

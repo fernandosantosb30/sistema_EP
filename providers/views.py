@@ -89,34 +89,42 @@ def home_view(request):
 
 @login_required
 def lista_provedores(request):
-    queryset = Provedor.objects.all().order_by('-id')
+    # 1. Pega o termo de busca da URL
+    query = request.GET.get('q')
+    
+    # 2. Inicia o queryset com todos os objetos
+    queryset = Provedor.objects.all()
+    
+    # 3. Se houver algo na busca, filtra o queryset
+    if query:
+        # Filtra pelo nome (ajuste o campo se necessário, ex: nome__icontains)
+        queryset = queryset.filter(nome__icontains=query)
+    
+    # 4. Ordena após filtrar
+    queryset = queryset.order_by('-id')
+    
+    # 5. Aplica a paginação no queryset JÁ FILTRADO
     paginator = Paginator(queryset, 10)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
-    # Log para debug no terminal do Render
-    print(f"Total de registros encontrados: {queryset.count()}") 
-    
     return render(request, 'providers/lista.html', {
-        'page_obj': page_obj,  # É esta variável que o template vai usar
-        'total_registros': queryset.count()
+        'page_obj': page_obj,
+        'total_registros': queryset.count() # Agora mostra o total da busca
     })
 
 @login_required
 def consulta_provedores(request):
-    # Inicializa o queryset
-    provedores = Provedor.objects.all().distinct() # .distinct() é importante ao filtrar por relacionamentos
+    # Otimização: prefetch_related carrega os contatos de uma vez
+    provedores = Provedor.objects.prefetch_related('contatos').all().distinct()
     
-    # Pega os dados do formulário
     fornecedor = request.GET.get('fornecedor')
     uf = request.GET.get('uf')
     cidade1 = request.GET.get('cidade1')
     cidade2 = request.GET.get('cidade2')
     cidade3 = request.GET.get('cidade3')
     
-    # Aplica os filtros
     if fornecedor:
-        # Busca por nome OU razao social
         provedores = provedores.filter(Q(nome__icontains=fornecedor) | Q(razao_social__icontains=fornecedor))
     
     if uf:
@@ -134,6 +142,7 @@ def consulta_provedores(request):
     }
     
     return render(request, 'providers/consulta.html', context)
+
 # --- GESTÃO DE CUSTO MÉDIO (INTEGRADA) ---
 
 @login_required

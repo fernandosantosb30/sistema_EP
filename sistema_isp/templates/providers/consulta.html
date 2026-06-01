@@ -66,12 +66,17 @@
                 <tbody>
                     {% for item in mapeamento %}
                     <tr>
-                        <td>{{ item.nome }}</td>
+                        <td>{{ item.nome }}</td> <td>
+                            {% for c in item.contatos.all %}
+                                <strong>{{ c.nome }}</strong>: {{ c.telefone }}
+                                {% if not forloop.last %}<br>{% endif %}
+                            {% empty %}
+                                <span class="text-muted">-</span>
+                            {% endfor %}
+                        </td>
                         <td>
                             {% for c in item.contatos.all %}
                                 {{ c.telefone }}{% if not forloop.last %}, {% endif %}
-                            {% empty %}
-                                <span class="text-muted">-</span>
                             {% endfor %}
                         </td>
                         <td>
@@ -83,7 +88,7 @@
                         </td>
                         <td>
                             <a href="{% url 'provedor_detail' item.id %}" class="btn btn-sm btn-outline-success">
-                                <i class="bi bi-eye"></i> Ver Provedor
+                                <i class="bi bi-eye"></i> Ver
                             </a>
                         </td>
                     </tr>

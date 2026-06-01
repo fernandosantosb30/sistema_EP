@@ -182,10 +182,11 @@
 
 {% block extra_scripts %}
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Seu código aqui só será executado quando o HTML estiver 100% carregado
-        // Isso evita o erro de "null" ou "undefined" ao buscar elementos
-    });
+    function confirmarLogout() {
+        if (confirm('Deseja realmente sair do sistema?')) {
+            document.getElementById('logout-form').submit();
+        }
+    }
 </script>
 {% endblock %}
 </body>

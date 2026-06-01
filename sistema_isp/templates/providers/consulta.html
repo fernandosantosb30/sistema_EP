@@ -55,29 +55,28 @@
         <h5 class="text-success"><i class="bi bi-check-circle"></i> Resultado do Mapeamento</h5>
         <div class="table-responsive">
             <table class="table table-dark table-hover mt-3">
-                <thead class="table-success text-dark">
-                    <tr>
-                        <th>Fornecedor</th>
-                        <th>Atendente</th>
-                        <th>Contato (Número)</th>
-                        <th>Trunk</th>
-                        <th>Ações</th> </tr>
-                </thead>
+                    <thead class="table-success text-dark">
+                        <tr>
+                            <th>Fornecedor</th>
+                            <th>Atendente</th>
+                            <th>Contato</th>
+                            <th>Trunk</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
                 <tbody>
                     {% for item in mapeamento %}
                     <tr>
-                        <td>{{ item.nome }}</td> <td>
+                        <td>{{ item.nome }}</td>
+                        <td>
                             {% for c in item.contatos.all %}
-                                <strong>{{ c.nome }}</strong>: {{ c.telefone }}
-                                {% if not forloop.last %}<br>{% endif %}
-                            {% empty %}
-                                <span class="text-muted">-</span>
-                            {% endfor %}
+                                {{ c.nome }}{% if not forloop.last %}, {% endif %}
+                            {% empty %}-{% endfor %}
                         </td>
                         <td>
                             {% for c in item.contatos.all %}
                                 {{ c.telefone }}{% if not forloop.last %}, {% endif %}
-                            {% endfor %}
+                            {% empty %}-{% endfor %}
                         </td>
                         <td>
                             {% if item.parceiro_bst %}
@@ -88,7 +87,7 @@
                         </td>
                         <td>
                             <a href="{% url 'provedor_detail' item.id %}" class="btn btn-sm btn-outline-success">
-                                <i class="bi bi-eye"></i> Ver
+                                <i class="bi bi-eye"></i> Ver Provedor
                             </a>
                         </td>
                     </tr>

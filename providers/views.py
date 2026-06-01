@@ -210,7 +210,15 @@ def editar_provedor(request, pk=None):
     else:
         form = ProvedorForm(instance=provedor) # instance=None cria novo registro
 
-    return render(request, 'providers/cadastro_edit.html', {'form': form, 'provedor': provedor})
+    form_cidade = CidadeForm() 
+    form_contato = ContatoForm()
+    
+    return render(request, 'providers/cadastro_edit.html', {
+        'form': form,
+        'provedor': provedor,
+        'form_cidade': form_cidade, # IMPORTANTE
+        'form_contato': form_contato, # IMPORTANTE
+    })
 
 @user_passes_test(e_admin)
 @login_required

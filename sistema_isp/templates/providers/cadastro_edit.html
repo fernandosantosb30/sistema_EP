@@ -79,38 +79,76 @@
             </div>
 
 <div class="row g-3 mt-1"> 
-    <div class="col-md-6">
-        <div class="card-custom p-3 border rounded shadow-sm h-100" style="background-color: rgba(255,255,255,0.05);">
-            <div class="d-flex justify-content-between align-items-center mb-2">
+<div class="col-md-6">
+    <div class="card-custom p-3 border rounded shadow-sm h-100" style="background-color: rgba(255,255,255,0.05);">
+        <div class="d-flex justify-content-between align-items-center mb-2">
             <div class="header-section text-lime fw-bold"><i class="bi bi-geo-alt"></i> Cidades</div>
             <div class="d-flex gap-1">
                 {% if provedor and provedor.id %}
+                    <a href="#" class="btn btn-sm btn-outline-danger py-0 px-2" title="Excluir todas"><i class="bi bi-trash"></i></a>
+                    <a href="#" class="btn btn-sm btn-outline-secondary py-0 px-2" title="CSV"><i class="bi bi-file-earmark-spreadsheet"></i></a>
                     <button type="button" class="btn btn-sm btn-primary py-0 px-2" data-bs-toggle="modal" data-bs-target="#modalCidade">
                         <i class="bi bi-plus-lg"></i>
                     </button>
                 {% else %}
-                    <button type="button" class="btn btn-sm btn-secondary py-0 px-2" disabled title="Salve o provedor primeiro">
-                        <i class="bi bi-plus-lg"></i>
-                    </button>
+                    <button type="button" class="btn btn-sm btn-secondary py-0 px-2" disabled><i class="bi bi-plus-lg"></i></button>
                 {% endif %}
             </div>
         </div>
-            <table class="table table-sm table-dark table-hover mb-0">
-                <thead>
-                    <tr class="small text-lime"><th>CIDADE</th><th>UF</th></tr>
-                </thead>
-                <tbody>
-                    {% for cidade in provedor.cidades.all %}
-                    <tr class="small align-middle">
-                        <td>{{ cidade.nome }}</td><td>{{ cidade.uf }}</td>
-                    </tr>
-                    {% empty %}
-                    <tr><td colspan="2" class="text-center text-white-50 small py-2">{% if provedor.id %}Sem cidades.{% else %}Disponível após salvar.{% endif %}</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+        
+        <table class="table table-sm table-dark table-hover mb-0">
+            <thead>
+                <tr class="small text-lime"><th>CIDADE</th><th>UF</th><th class="text-center">AÇÃO</th></tr>
+            </thead>
+            <tbody>
+                {% for cidade in provedor.cidades.all %}
+                <tr class="small align-middle">
+                    <td>{{ cidade.nome }}</td><td>{{ cidade.uf }}</td>
+                    <td class="text-center">
+                        <a href="{% url 'excluir_cidade' cidade.id %}" class="text-danger"><i class="bi bi-trash"></i></a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="3" class="text-center text-white-50 small py-2">Sem cidades cadastradas.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
+</div>
+
+<div class="col-md-6">
+    <div class="card-custom p-3 border rounded shadow-sm h-100" style="background-color: rgba(255,255,255,0.05);">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <div class="header-section text-lime fw-bold"><i class="bi bi-person-lines-fill"></i> Contatos</div>
+            {% if provedor and provedor.id %}
+                <button type="button" class="btn btn-sm btn-primary py-0 px-2" data-bs-toggle="modal" data-bs-target="#modalContato">
+                    <i class="bi bi-plus-lg"></i>
+                </button>
+            {% else %}
+                <button type="button" class="btn btn-sm btn-secondary py-0 px-2" disabled><i class="bi bi-plus-lg"></i></button>
+            {% endif %}
+        </div>
+        
+        <table class="table table-sm table-dark table-hover mb-0">
+            <thead>
+                <tr class="small text-lime"><th>NOME</th><th>CARGO</th><th>TELEFONE</th><th class="text-center">E-MAIL</th></tr>
+            </thead>
+            <tbody>
+                {% for contato in provedor.contatos.all %}
+                <tr class="small align-middle">
+                    <td>{{ contato.nome }}</td><td>{{ contato.cargo|default:"-" }}</td><td>{{ contato.telefone }}</td>
+                    <td class="text-center">
+                        <button type="button" class="btn btn-link text-info p-0 me-1" data-bs-toggle="modal" data-bs-target="#modalEditarContato{{ contato.id }}"><i class="bi bi-pencil-square"></i></button>
+                        {% if user.is_superuser %}<a href="{% url 'excluir_contato' contato.id %}" class="text-danger" onclick="return confirm('Excluir?')"><i class="bi bi-trash"></i></a>{% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="text-center text-white-50 small py-2">Sem contatos.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
 
     <div class="col-md-6">
         <div class="card-custom p-3 border rounded shadow-sm h-100" style="background-color: rgba(255,255,255,0.05);">
@@ -127,6 +165,20 @@
                         </button>
                     {% endif %}
                 </div>
+
+                        <div class="d-flex gap-1">
+                    {% if provedor and provedor.id %}
+                        <a href="#" class="btn btn-sm btn-outline-danger py-0 px-2" title="Excluir todas"><i class="bi bi-trash"></i></a>
+                        <a href="#" class="btn btn-sm btn-outline-secondary py-0 px-2" title="CSV"><i class="bi bi-file-earmark-spreadsheet"></i></a>
+                        
+                        <button type="button" class="btn btn-sm btn-primary py-0 px-2" data-bs-toggle="modal" data-bs-target="#modalCidade">
+                            <i class="bi bi-plus-lg"></i>
+                        </button>
+                    {% else %}
+                        <button type="button" class="btn btn-sm btn-secondary py-0 px-2" disabled><i class="bi bi-plus-lg"></i></button>
+                    {% endif %}
+                </div>
+
             <table class="table table-sm table-dark table-hover mb-0">
                 <thead>
                     <tr class="small text-lime"><th>NOME</th><th>CARGO</th><th>TELEFONE</th><th class="text-center">E-MAIL</th></tr>

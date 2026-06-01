@@ -198,33 +198,19 @@ def adicionar_contato(request, provedor_id):
 
 @login_required
 def editar_provedor(request, pk=None):
-    # 1. Defina a variável inicial como None
     provedor = None
-    
-    # 2. Só tenta buscar se o PK existir
-    if pk is not None:
-        try:
-            # Busque o objeto apenas se tiver ID
-            provedor = Provedor.objects.prefetch_related('contatos', 'cidades').get(pk=pk)
-        except Provedor.DoesNotExist:
-            # Se alguém digitou um ID que não existe, jogue de volta para a lista
-            return redirect('lista_provedores')
+    if pk: # Apenas busca se um ID for fornecido
+        provedor = get_object_or_404(Provedor, pk=pk)
 
     if request.method == 'POST':
-        # Se provedor é None, form cria novo. Se não, edita.
         form = ProvedorForm(request.POST, instance=provedor)
         if form.is_valid():
             form.save()
             return redirect('lista_provedores')
     else:
-        form = ProvedorForm(instance=provedor)
-    
-    return render(request, 'providers/cadastro_edit.html', {
-        'form': form,
-        'provedor': provedor,
-        'form_cidade': CidadeForm(),  # Importe seu formulário de Cidade
-        'form_contato': ContatoForm(), # Importe seu formulário de Contato
-    })
+        form = ProvedorForm(instance=provedor) # instance=None cria novo registro
+
+    return render(request, 'providers/cadastro_edit.html', {'form': form, 'provedor': provedor})
 
 @user_passes_test(e_admin)
 @login_required

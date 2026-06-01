@@ -27,7 +27,7 @@ urlpatterns = [
     
     # Gestão de Contatos (Adicionado Editar)
     path('provedores/<int:provedor_id>/contato/novo/', providers_views.adicionar_contato, name='adicionar_contato'),
-    path('provedores/contato/editar/<int:contato_id>/', providers_views.editar_contato, name='editar_contato'), # Nova!
+    path('provedores/contato/editar/<int:contato_id>/', providers_views.adicionar_contato, name='editar_contato'),
     path('provedores/contato/excluir/<int:contato_id>/', providers_views.excluir_contato, name='excluir_contato'),
     
     # Gestão de Cidades

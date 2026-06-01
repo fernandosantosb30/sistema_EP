@@ -150,22 +150,6 @@
     </div>
 </div>
 
-    <div class="col-md-6">
-        <div class="card-custom p-3 border rounded shadow-sm h-100" style="background-color: rgba(255,255,255,0.05);">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-                <div class="header-section text-lime fw-bold"><i class="bi bi-person-lines-fill"></i> Contatos</div>
-                
-                    {% if provedor and provedor.id %}
-                        <button type="button" class="btn btn-sm btn-primary py-0 px-2" data-bs-toggle="modal" data-bs-target="#modalContato">
-                            <i class="bi bi-plus-lg"></i>
-                        </button>
-                    {% else %}
-                        <button type="button" class="btn btn-sm btn-secondary py-0 px-2" disabled title="Salve o provedor primeiro">
-                            <i class="bi bi-plus-lg"></i>
-                        </button>
-                    {% endif %}
-                </div>
-
                         <div class="d-flex gap-1">
                     {% if provedor and provedor.id %}
                         <a href="#" class="btn btn-sm btn-outline-danger py-0 px-2" title="Excluir todas"><i class="bi bi-trash"></i></a>

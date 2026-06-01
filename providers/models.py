@@ -55,7 +55,7 @@ class Contato(models.Model):
     telefone = models.CharField(max_length=20, null=True, blank=True)
     email = models.EmailField(null=True, blank=True)
     # Adicione esta linha:
-    prioridade = models.IntegerField(default=1) 
+    prioridade = models.IntegerField(default=1, null=True, blank=True)
     
     class Meta:
         app_label = 'providers'

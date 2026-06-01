@@ -58,9 +58,10 @@
                 <thead class="table-success text-dark">
                     <tr>
                         <th>Fornecedor</th>
-                        <th>Contato</th>
+                        <th>Atendente</th>
+                        <th>Contato (Número)</th>
                         <th>Trunk</th>
-                    </tr>
+                        <th>Ações</th> </tr>
                 </thead>
                 <tbody>
                     {% for item in mapeamento %}
@@ -68,7 +69,7 @@
                         <td>{{ item.nome }}</td>
                         <td>
                             {% for c in item.contatos.all %}
-                                {{ c.nome }}{% if not forloop.last %}, {% endif %}
+                                {{ c.telefone }}{% if not forloop.last %}, {% endif %}
                             {% empty %}
                                 <span class="text-muted">-</span>
                             {% endfor %}
@@ -80,12 +81,19 @@
                                 <span class="text-muted">-</span>
                             {% endif %}
                         </td>
+                        <td>
+                            <a href="{% url 'provedor_detail' item.id %}" class="btn btn-sm btn-outline-success">
+                                <i class="bi bi-eye"></i> Ver Provedor
+                            </a>
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
     </div>
+{% endif %}
+
 {% elif request.GET.fornecedor or request.GET.uf or request.GET.cidade1 or request.GET.cidade2 or request.GET.cidade3 %}
     <div class="card bg-dark border-warning p-4 mt-4 text-center">
         <h5 class="text-warning"><i class="bi bi-exclamation-triangle"></i> Sem resultados</h5>

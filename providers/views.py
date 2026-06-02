@@ -149,34 +149,35 @@ def consulta_provedores(request):
 @login_required
 def processar_custo_medio(request):
     context = {}
-    if not request.GET:
-        return render(request, 'providers/custo_medio_integrado.html', context)
+    
+    # Se o usuário submeteu os filtros (GET)
+    if request.GET.get('cidade') or request.GET.get('uf'):
+        try:
+            engine = get_db_engine()
+            # Certifique-se de que a query seleciona todas as colunas necessárias
+            query = "SELECT cidade, uf, servico, valor_mensal, capacidade_mb, vigencia_meses FROM public.providers_contratocusto"
+            df = pd.read_sql(query, engine)
 
-    try:
-        engine = get_db_engine()
-        query = "SELECT cidade, uf, servico, valor_mensal, capacidade_mb, vigencia_meses FROM public.providers_contratocusto"
-        df = pd.read_sql(query, engine)
-
-        mask = pd.Series(True, index=df.index)
-        
-        if request.GET.get('uf'): mask &= (df['uf'].str.upper() == request.GET.get('uf').upper())
-        if request.GET.get('cidade'): mask &= (df['cidade'].str.contains(request.GET.get('cidade'), case=False, na=False))
-        if request.GET.get('servico'): mask &= (df['servico'] == request.GET.get('servico'))
-        if request.GET.get('capacidade'): mask &= (df['capacidade_mb'] == int(request.GET.get('capacidade')))
-        if request.GET.get('vigencia'): mask &= (df['vigencia_meses'] == int(request.GET.get('vigencia')))
-        # Adicione aqui futuramente se precisar filtrar interface/ip_fixo na query SQL
-        
-        df_filtrado = df[mask]
-        
-        if not df_filtrado.empty:
-            context.update({
-                'custo_medio': round(float(df_filtrado['valor_mensal'].mean()), 2), 
-                'quantidade_contratos': len(df_filtrado)
-            })
-        else:
-            context['mensagem_erro'] = "Nenhum contrato encontrado."
-    except Exception as e:
-        context['mensagem_erro'] = f"Erro: {e}"
+            mask = pd.Series(True, index=df.index)
+            
+            if request.GET.get('uf'): mask &= (df['uf'].str.upper() == request.GET.get('uf').upper())
+            if request.GET.get('cidade'): mask &= (df['cidade'].str.contains(request.GET.get('cidade'), case=False, na=False))
+            if request.GET.get('servico'): mask &= (df['servico'] == request.GET.get('servico'))
+            if request.GET.get('capacidade'): mask &= (df['capacidade_mb'] == int(request.GET.get('capacidade')))
+            if request.GET.get('vigencia'): mask &= (df['vigencia_meses'] == int(request.GET.get('vigencia')))
+            
+            df_filtrado = df[mask]
+            
+            if not df_filtrado.empty:
+                # Adiciona as chaves ao contexto para o template exibir
+                context['custo_medio'] = round(float(df_filtrado['valor_mensal'].mean()), 2)
+                context['quantidade_contratos'] = len(df_filtrado)
+            else:
+                context['mensagem_erro'] = "Nenhum contrato encontrado."
+                context['custo_medio'] = 0.00
+                context['quantidade_contratos'] = 0
+        except Exception as e:
+            context['mensagem_erro'] = f"Erro: {e}"
 
     return render(request, 'providers/custo_medio_integrado.html', context)
 
@@ -186,50 +187,44 @@ def processar_lote_csv(request):
     if request.method == 'POST' and request.FILES.get('arquivo_cidades'):
         arquivo = request.FILES['arquivo_cidades']
         try:
-            # Tratamento robusto para arquivos tipo MS-DOS e quebras de linha
+            # Leitura e normalização básica
             conteudo = arquivo.read().decode('utf-8', errors='ignore').replace('\r\n', '\n')
             df_input = pd.read_csv(io.StringIO(conteudo))
-            
-            # NORMALIZAÇÃO: Transforma todos os nomes de colunas do CSV para minúsculo e remove espaços
-            # Isso resolve variações como "Cidade", " CIDADE ", "cidade"
             df_input.columns = [c.lower().strip() for c in df_input.columns]
             
-            # Validação básica de colunas necessárias
+            # Validação
             colunas_esperadas = ['cidade', 'uf', 'servico', 'velocidade']
             if not all(col in df_input.columns for col in colunas_esperadas):
                 return HttpResponse(f"Erro: O arquivo deve conter as colunas: {', '.join(colunas_esperadas)}")
 
+            # Limpeza dos dados de entrada
+            df_input['cidade'] = df_input['cidade'].astype(str).str.lower().str.strip()
+            df_input['uf'] = df_input['uf'].astype(str).str.lower().str.strip()
+            df_input['servico'] = df_input['servico'].astype(str).str.lower().str.strip()
+            # Converte velocidade para int de forma segura
+            df_input['capacidade_mb'] = pd.to_numeric(df_input['velocidade'], errors='coerce').fillna(-1).astype(int)
+
+            # Busca dados do banco
             engine = get_db_engine()
             df_custos = pd.read_sql("SELECT cidade, uf, servico, valor_mensal, capacidade_mb FROM public.providers_contratocusto", engine)
             
-            # Normaliza também as colunas do banco para comparação
+            # Normaliza dados do banco
             df_custos['cidade'] = df_custos['cidade'].str.lower().str.strip()
             df_custos['uf'] = df_custos['uf'].str.lower().str.strip()
             df_custos['servico'] = df_custos['servico'].str.lower().str.strip()
 
-            resultados = []
-            for _, row in df_input.iterrows():
-                # Filtra pelos critérios, usando os nomes normalizados das colunas
-                mask = (df_custos['cidade'] == str(row['cidade']).lower().strip()) & \
-                       (df_custos['uf'] == str(row['uf']).lower().strip()) & \
-                       (df_custos['servico'] == str(row['servico']).lower().strip()) & \
-                       (df_custos['capacidade_mb'] == int(row['velocidade']))
-                
-                df_filtrado = df_custos[mask]
-                media = df_filtrado['valor_mensal'].mean()
-                
-                resultados.append({
-                    'cidade': row['cidade'],
-                    'uf': row['uf'],
-                    'servico': row['servico'],
-                    'velocidade': row['velocidade'],
-                    'custo_medio': round(float(media), 2) if pd.notnull(media) else 0
-                })
+            # OTIMIZAÇÃO: Usando merge em vez de loop for (muito mais rápido)
+            df_merge = pd.merge(df_input, df_custos, on=['cidade', 'uf', 'servico', 'capacidade_mb'], how='left')
             
-            df_res = pd.DataFrame(resultados)
+            # Agrupa para tirar a média por linha original do CSV
+            df_resultado = df_merge.groupby(['cidade', 'uf', 'servico', 'velocidade'])['valor_mensal'].mean().reset_index()
+            df_resultado.rename(columns={'valor_mensal': 'custo_medio'}, inplace=True)
+            df_resultado['custo_medio'] = df_resultado['custo_medio'].fillna(0).round(2)
+
+            # Gerar download
             response = HttpResponse(content_type='text/csv')
             response['Content-Disposition'] = 'attachment; filename="resultado_precificacao.csv"'
-            df_res.to_csv(path_or_buf=response, index=False)
+            df_resultado.to_csv(path_or_buf=response, index=False)
             return response
             
         except Exception as e:

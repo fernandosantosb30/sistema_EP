@@ -6,10 +6,8 @@ async function carregarFiltros() {
         
         const opcoes = await response.json();
         
-        // ADICIONE ESTA LINHA PARA VER O QUE CHEGOU NO CONSOLE
         console.log("Dados recebidos da API:", opcoes);
 
-        // Se o console mostrar nomes de chaves diferentes, ajuste aqui:
         preencherSelect('tipo_servico', opcoes.servicos || []);
         preencherSelect('interface', opcoes.interfaces || []);
         preencherSelect('ip_fixo', opcoes.ips || []);
@@ -19,15 +17,13 @@ async function carregarFiltros() {
     }
 }
 
-
 // Função auxiliar para montar as opções
 function preencherSelect(id, lista) {
     const select = document.getElementById(id);
-    if (!select || !lista) return; // Segurança extra caso a lista venha nula
+    if (!select || !lista) return; 
     
     select.innerHTML = '<option value="">Todos</option>';
     lista.forEach(item => {
-        // Normalização de strings para evitar opções vazias ou 'NaN'
         if (item && item.toString().toUpperCase() !== 'NAN' && item.toString().toUpperCase() !== 'NÃO INFORMADO') {
             const option = document.createElement('option');
             option.value = item;
@@ -39,7 +35,6 @@ function preencherSelect(id, lista) {
 
 // 2. Busca Individual com Lógica de Média Regional
 async function buscarMedia() {
-    // Captura os valores dos campos de filtro do HTML
     const campos = {
         cidade: document.getElementById('cidade')?.value,
         uf: document.getElementById('uf')?.value,
@@ -50,13 +45,12 @@ async function buscarMedia() {
         prazo: document.getElementById('prazo')?.value
     };
 
-    // IDs corrigidos para bater exatamente com o novo index.html unificado
     const displayMedia = document.getElementById('resultado-media');
     const displayQtd = document.getElementById('resultado-amostragem');
     const displayAviso = document.getElementById('alerta-regional');
     const textoAlerta = document.getElementById('texto-alerta');
 
-    // CORREÇÃO: Alterado de 8000 para 8080 para bater com o FastAPI unificado
+    // URL normalizada para porta 8000
     const url = new URL('http://127.0.0.1:8000/api/custo-medio/');
     Object.keys(campos).forEach(key => {
         if (campos[key]) url.searchParams.append(key, campos[key]);
@@ -65,12 +59,12 @@ async function buscarMedia() {
     try {
         if (displayMedia) displayMedia.innerText = "Consultando...";
         
-        const response = await fetch(url);
+        const response = await fetch(url, { method: 'GET', headers: { 'Accept': 'application/json' } });
         if (!response.ok) throw new Error('Erro na resposta do servidor');
         
         const dados = await response.json();
 
-        // 1. Atualiza o Valor Médio na tela
+        // 1. Atualiza o Valor Médio
         if (displayMedia) {
             const valorFormatado = (dados.custo_medio || 0).toLocaleString('pt-BR', { 
                 style: 'currency', 
@@ -79,27 +73,26 @@ async function buscarMedia() {
             displayMedia.innerText = valorFormatado;
         }
         
-        // 2. Atualiza a Quantidade de Amostragem
+        // 2. Atualiza a Amostragem
         if (displayQtd) {
             displayQtd.innerText = `${dados.quantidade_contratos || 0} contratos`;
         }
 
-        // 3. Lógica de Alerta Regional Baseado no Bootstrap 5
+        // 3. Lógica de Alerta
         if (displayAviso && textoAlerta) {
             if (dados.tipo_resultado === "media_regional") {
                 textoAlerta.innerHTML = `<strong>Aviso:</strong> Cidade sem histórico. Exibindo média regional (${campos.uf?.toUpperCase() || 'UF'}).`;
-                displayAviso.classList.remove('d-none'); // Exibe o alerta
+                displayAviso.classList.remove('d-none');
             } else if (dados.quantidade_contratos === 0 || dados.custo_medio === 0) {
-                textoAlerta.innerHTML = "<strong>Nenhum contrato</strong> encontrado para estes filtros cadastrados.";
-                displayAviso.classList.remove('d-none'); // Exibe o alerta
+                textoAlerta.innerHTML = "<strong>Nenhum contrato</strong> encontrado para estes filtros.";
+                displayAviso.classList.remove('d-none');
             } else {
-                displayAviso.classList.add('d-none'); // Oculta o alerta se deu tudo certo
+                displayAviso.classList.add('d-none');
             }
         }
 
     } catch (error) {
         console.error('Erro:', error);
-        // CORREÇÃO: Ajustada mensagem de alerta para apontar para a porta 8080
         alert('Erro ao conectar com o servidor da API. Verifique se o FastAPI está rodando na porta 8000.')
         if (displayMedia) displayMedia.innerText = "R$ 0,00";
     }
@@ -107,14 +100,12 @@ async function buscarMedia() {
 
 // 3. Processamento de Planilha em Lote
 async function subirPlanilha() {
-    // ID corrigido para o padrão com hífen do HTML
     const fileInput = document.getElementById('arquivo-csv');
     if (!fileInput || fileInput.files.length === 0) {
         alert("Por favor, selecione um arquivo CSV primeiro.");
         return;
     }
 
-    // Seletor ajustado para o ID correto do novo botão
     const btn = document.getElementById('btn-processar-lote');
     const originalText = btn.innerHTML;
     
@@ -125,7 +116,7 @@ async function subirPlanilha() {
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>PROCESSANDO...';
         btn.disabled = true;
 
-        // CORREÇÃO: Alterado de 8000 para 8080 para bater com o FastAPI unificado
+        // URL normalizada para porta 8000
         const response = await fetch('http://127.0.0.1:8000/contratos/processar-planilha', {
             method: 'POST',
             body: formData
@@ -137,37 +128,28 @@ async function subirPlanilha() {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = "resultado_custos.csv"; // Nome limpo e profissional
+        a.download = "resultado_custos.csv";
         document.body.appendChild(a);
         a.click();
         a.remove();
-        window.URL.revokeObjectURL(url); // Limpa o buffer de memória
+        window.URL.revokeObjectURL(url);
         
-        alert("Sucesso! A planilha com os custos calculados foi baixada automaticamente.");
+        alert("Sucesso! A planilha com os custos calculados foi baixada.");
     } catch (error) {
         console.error(error);
-        alert("Falha no processamento em lote. Certifique-se de que o CSV usa separador ponto e vírgula e possui as colunas obrigatórias.");
+        alert("Falha no processamento em lote. Verifique se o arquivo está correto e se o servidor na porta 8000 está ativo.");
     } finally {
         btn.innerHTML = originalText;
         btn.disabled = false;
     }
 }
 
-// Inicialização Unificada e Atribuição de Eventos
 document.addEventListener('DOMContentLoaded', () => {
-    // Carrega os selects assim que a página abrir
     carregarFiltros();
 
-    // Atribui a função de calcular ao clique do botão correspondente
     const btnCalcular = document.getElementById('btn-calcular');
-    if (btnCalcular) {
-        btnCalcular.addEventListener('click', buscarMedia);
-    }
+    if (btnCalcular) btnCalcular.addEventListener('click', buscarMedia);
 
-    // Atribui a função de lote ao clique do botão de planilha
     const btnLote = document.getElementById('btn-processar-lote');
-    if (btnLote) {
-        btnLote.addEventListener('click', subirPlanilha);
-    }
+    if (btnLote) btnLote.addEventListener('click', subirPlanilha);
 });
-

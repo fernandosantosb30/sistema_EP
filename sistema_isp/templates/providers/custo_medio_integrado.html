@@ -6,43 +6,41 @@
 
     <div class="card bg-dark border-primary p-4">
         <h5 class="text-primary mb-3">Filtros de Pesquisa</h5>
-        <form method="GET" action="{% url 'processar_custo_medio' %}" class="row g-3">
+        <form id="form-filtros" class="row g-3">
             <div class="col-md-6">
-                <input type="text" name="cidade" class="form-control bg-dark text-white" placeholder="Ex: Santa Maria" value="{{ request.GET.cidade }}">
+                <input type="text" id="cidade" name="cidade" class="form-control bg-dark text-white" placeholder="Ex: Santa Maria">
             </div>
             <div class="col-md-6">
-                <input type="text" name="uf" class="form-control bg-dark text-white" placeholder="UF" value="{{ request.GET.uf }}">
+                <input type="text" id="uf" name="uf" class="form-control bg-dark text-white" placeholder="UF">
             </div>
             
             <div class="col-md-6">
-                <select name="servico" class="form-select bg-dark text-white">
+                <select id="tipo_servico" name="servico" class="form-select bg-dark text-white">
                     <option value="">Tipo de Serviço (Todos)</option>
-                    <option value="Fibra" {% if request.GET.servico == 'Fibra' %}selected{% endif %}>Fibra</option>
-                    <option value="Radio" {% if request.GET.servico == 'Radio' %}selected{% endif %}>Radio</option>
                 </select>
             </div>
             <div class="col-md-6">
-                <input type="number" name="capacidade" class="form-control bg-dark text-white" placeholder="Velocidade (MB)" value="{{ request.GET.capacidade }}">
+                <input type="number" id="velocidade" name="capacidade" class="form-control bg-dark text-white" placeholder="Velocidade (MB)">
             </div>
 
             <div class="col-md-6">
-                <select name="interface" class="form-select bg-dark text-white">
+                <select id="interface" name="interface" class="form-select bg-dark text-white">
                     <option value="">Interface (Todos)</option>
                 </select>
             </div>
             <div class="col-md-6">
-                <select name="ip_fixo" class="form-select bg-dark text-white">
+                <select id="ip_fixo" name="ip_fixo" class="form-select bg-dark text-white">
                     <option value="">IP Fixo (Todos)</option>
                 </select>
             </div>
             <div class="col-md-12">
-                <select name="vigencia" class="form-select bg-dark text-white">
+                <select id="prazo" name="vigencia" class="form-select bg-dark text-white">
                     <option value="">Prazo Contratual (Meses)</option>
                 </select>
             </div>
 
             <div class="col-12 mt-3">
-                <button type="submit" class="btn btn-primary w-100 fw-bold">
+                <button type="button" id="btn-calcular" class="btn btn-primary w-100 fw-bold">
                     <i class="bi bi-calculator"></i> Calcular Custo Médio
                 </button>
             </div>
@@ -53,35 +51,35 @@
         <h5 class="text-success mb-3"><i class="bi bi-file-earmark-excel"></i> Processar Planilha (Lote)</h5>
         <p class="text-white-50 small mb-3">Suba um CSV com as colunas: <b>cidade, uf, servico, velocidade</b></p>
         
-        <form method="POST" action="{% url 'processar_lote' %}" enctype="multipart/form-data" class="row g-3 align-items-center">
-            {% csrf_token %}
+        <div class="row g-3 align-items-center">
             <div class="col-md-9">
-                <input type="file" name="arquivo_cidades" class="form-control bg-dark text-white border-secondary" accept=".csv" required>
+                <input type="file" id="arquivo-csv" class="form-control bg-dark text-white border-secondary" accept=".csv" required>
             </div>
             <div class="col-md-3">
-                <button type="submit" class="btn btn-success w-100 fw-bold">
+                <button type="button" id="btn-processar-lote" class="btn btn-success w-100 fw-bold">
                     <i class="bi bi-download"></i> PROCESSAR E BAIXAR
                 </button>
             </div>
-        </form>
+        </div>
     </div>
 
-    {% if custo_medio is not None %}
     <div class="row mt-4">
         <div class="col-md-6">
             <div class="card bg-dark border-success p-3 text-center">
                 <h6 class="text-success">Média Estimada</h6>
-                <h3 class="text-white">R$ {{ custo_medio|default:"0,00" }}</h3>
+                <h3 id="resultado-media" class="text-white">R$ 0,00</h3>
             </div>
         </div>
         <div class="col-md-6">
             <div class="card bg-dark border-info p-3 text-center">
                 <h6 class="text-info">Amostragem</h6>
-                <h3 class="text-white">{{ quantidade_contratos|default:"0" }} contratos</h3>
+                <h3 id="resultado-amostragem" class="text-white">0 contratos</h3>
             </div>
         </div>
     </div>
-    {% endif %}
 
+    <div id="alerta-regional" class="alert alert-warning mt-3 d-none">
+        <span id="texto-alerta"></span>
+    </div>
 </div>
 {% endblock %}

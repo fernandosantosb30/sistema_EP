@@ -13,6 +13,7 @@
             <div class="col-md-6">
                 <input type="text" name="uf" class="form-control bg-dark text-white" placeholder="UF" value="{{ request.GET.uf }}">
             </div>
+            
             <div class="col-md-6">
                 <select name="servico" class="form-select bg-dark text-white">
                     <option value="">Tipo de Serviço (Todos)</option>
@@ -23,8 +24,27 @@
             <div class="col-md-6">
                 <input type="number" name="capacidade" class="form-control bg-dark text-white" placeholder="Velocidade (MB)" value="{{ request.GET.capacidade }}">
             </div>
-            <div class="col-12">
-                <button type="submit" class="btn btn-primary w-100 fw-bold">Calcular Custo Médio</button>
+
+            <div class="col-md-6">
+                <select name="interface" class="form-select bg-dark text-white">
+                    <option value="">Interface (Todos)</option>
+                </select>
+            </div>
+            <div class="col-md-6">
+                <select name="ip_fixo" class="form-select bg-dark text-white">
+                    <option value="">IP Fixo (Todos)</option>
+                </select>
+            </div>
+            <div class="col-md-12">
+                <select name="vigencia" class="form-select bg-dark text-white">
+                    <option value="">Prazo Contratual (Meses)</option>
+                </select>
+            </div>
+
+            <div class="col-12 mt-3">
+                <button type="submit" class="btn btn-primary w-100 fw-bold">
+                    <i class="bi bi-calculator"></i> Calcular Custo Médio
+                </button>
             </div>
         </form>
     </div>
@@ -44,8 +64,21 @@
             </div>
         </div>
     </div>
-    {% elif mensagem_erro %}
-    <div class="alert alert-danger mt-4">{{ mensagem_erro }}</div>
     {% endif %}
+
+    <div class="card bg-dark border-success p-4 mt-4">
+        <h5 class="text-success mb-3"><i class="bi bi-file-earmark-excel"></i> Processar Planilha (Lote)</h5>
+        <form method="POST" action="{% url 'processar_lote' %}" enctype="multipart/form-data" class="row g-3 align-items-center">
+            {% csrf_token %}
+            <div class="col-md-9">
+                <input type="file" name="arquivo_cidades" class="form-control bg-dark text-white border-secondary" accept=".csv" required>
+            </div>
+            <div class="col-md-3">
+                <button type="submit" class="btn btn-success w-100 fw-bold">
+                    <i class="bi bi-download"></i> PROCESSAR E BAIXAR
+                </button>
+            </div>
+        </form>
+    </div>
 </div>
 {% endblock %}

@@ -42,6 +42,7 @@ urlpatterns = [
     path('consulta/mapeamento/', providers_views.consulta_provedores, name='consulta_provedores'), 
     path('provedores/importar-cidades/<int:provedor_id>/', providers_views.importar_cidades_csv, name='importar_cidades_csv'),
     path('custo-medio/', providers_views.processar_custo_medio, name='processar_custo_medio'),
+    path('custo-medio/processar-lote/', providers_views.processar_lote_csv, name='processar_lote'),
     
     # Gestão de Usuários (Centralizado)
     path('usuarios/', providers_views.gestao_usuarios, name='gestao_usuarios'),

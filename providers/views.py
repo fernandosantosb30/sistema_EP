@@ -2,6 +2,7 @@
 import csv
 import os
 import unicodedata
+import io
 
 # --- BIBLIOTECAS DE TERCEIROS ---
 import pandas as pd
@@ -148,9 +149,7 @@ def consulta_provedores(request):
 @login_required
 def processar_custo_medio(request):
     context = {}
-    
-    # Se não houver parâmetros, apenas mostra a página vazia
-    if not request.GET.get('cidade') and not request.GET.get('uf'):
+    if not request.GET:
         return render(request, 'providers/custo_medio_integrado.html', context)
 
     try:
@@ -160,16 +159,13 @@ def processar_custo_medio(request):
 
         mask = pd.Series(True, index=df.index)
         
-        # Filtros condicionais
-        if request.GET.get('uf'): 
-            mask &= (df['uf'].str.upper() == request.GET.get('uf').upper())
-        if request.GET.get('cidade'): 
-            mask &= (df['cidade'].str.contains(request.GET.get('cidade'), case=False, na=False))
-        if request.GET.get('servico'): 
-            mask &= (df['servico'] == request.GET.get('servico'))
-        if request.GET.get('capacidade'): 
-            mask &= (df['capacidade_mb'] == int(request.GET.get('capacidade')))
-
+        if request.GET.get('uf'): mask &= (df['uf'].str.upper() == request.GET.get('uf').upper())
+        if request.GET.get('cidade'): mask &= (df['cidade'].str.contains(request.GET.get('cidade'), case=False, na=False))
+        if request.GET.get('servico'): mask &= (df['servico'] == request.GET.get('servico'))
+        if request.GET.get('capacidade'): mask &= (df['capacidade_mb'] == int(request.GET.get('capacidade')))
+        if request.GET.get('vigencia'): mask &= (df['vigencia_meses'] == int(request.GET.get('vigencia')))
+        # Adicione aqui futuramente se precisar filtrar interface/ip_fixo na query SQL
+        
         df_filtrado = df[mask]
         
         if not df_filtrado.empty:
@@ -178,12 +174,68 @@ def processar_custo_medio(request):
                 'quantidade_contratos': len(df_filtrado)
             })
         else:
-            context['mensagem_erro'] = "Nenhum contrato encontrado para os critérios selecionados."
-            
+            context['mensagem_erro'] = "Nenhum contrato encontrado."
     except Exception as e:
-        context['mensagem_erro'] = f"Erro ao processar dados: {e}"
+        context['mensagem_erro'] = f"Erro: {e}"
 
     return render(request, 'providers/custo_medio_integrado.html', context)
+
+# --- Nova Função de Processamento em Lote (CSV) ---
+@login_required
+def processar_lote_csv(request):
+    if request.method == 'POST' and request.FILES.get('arquivo_cidades'):
+        arquivo = request.FILES['arquivo_cidades']
+        try:
+            # Tratamento robusto para arquivos tipo MS-DOS e quebras de linha
+            conteudo = arquivo.read().decode('utf-8', errors='ignore').replace('\r\n', '\n')
+            df_input = pd.read_csv(io.StringIO(conteudo))
+            
+            # NORMALIZAÇÃO: Transforma todos os nomes de colunas do CSV para minúsculo e remove espaços
+            # Isso resolve variações como "Cidade", " CIDADE ", "cidade"
+            df_input.columns = [c.lower().strip() for c in df_input.columns]
+            
+            # Validação básica de colunas necessárias
+            colunas_esperadas = ['cidade', 'uf', 'servico', 'velocidade']
+            if not all(col in df_input.columns for col in colunas_esperadas):
+                return HttpResponse(f"Erro: O arquivo deve conter as colunas: {', '.join(colunas_esperadas)}")
+
+            engine = get_db_engine()
+            df_custos = pd.read_sql("SELECT cidade, uf, servico, valor_mensal, capacidade_mb FROM public.providers_contratocusto", engine)
+            
+            # Normaliza também as colunas do banco para comparação
+            df_custos['cidade'] = df_custos['cidade'].str.lower().str.strip()
+            df_custos['uf'] = df_custos['uf'].str.lower().str.strip()
+            df_custos['servico'] = df_custos['servico'].str.lower().str.strip()
+
+            resultados = []
+            for _, row in df_input.iterrows():
+                # Filtra pelos critérios, usando os nomes normalizados das colunas
+                mask = (df_custos['cidade'] == str(row['cidade']).lower().strip()) & \
+                       (df_custos['uf'] == str(row['uf']).lower().strip()) & \
+                       (df_custos['servico'] == str(row['servico']).lower().strip()) & \
+                       (df_custos['capacidade_mb'] == int(row['velocidade']))
+                
+                df_filtrado = df_custos[mask]
+                media = df_filtrado['valor_mensal'].mean()
+                
+                resultados.append({
+                    'cidade': row['cidade'],
+                    'uf': row['uf'],
+                    'servico': row['servico'],
+                    'velocidade': row['velocidade'],
+                    'custo_medio': round(float(media), 2) if pd.notnull(media) else 0
+                })
+            
+            df_res = pd.DataFrame(resultados)
+            response = HttpResponse(content_type='text/csv')
+            response['Content-Disposition'] = 'attachment; filename="resultado_precificacao.csv"'
+            df_res.to_csv(path_or_buf=response, index=False)
+            return response
+            
+        except Exception as e:
+            return HttpResponse(f"Erro ao processar: {e}")
+            
+    return HttpResponse("Erro: Arquivo não enviado ou formato inválido.")
 
 def get_provedor_form(): return modelform_factory(Provedor, fields="__all__")
 def get_contato_form(): return modelform_factory(Contato, fields="__all__")

@@ -24,7 +24,6 @@ class Migration(migrations.Migration):
         ),
         migrations.AlterField(
             model_name='contato',
-            name='prioridade',
             field=models.IntegerField(default=1),
         ),
     ]

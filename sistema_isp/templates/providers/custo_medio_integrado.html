@@ -82,4 +82,32 @@
         <span id="texto-alerta"></span>
     </div>
 </div>
+
+<script>
+document.getElementById('btn-calcular').addEventListener('click', function() {
+    // Captura os valores dos campos
+    const cidade = document.getElementById('cidade').value;
+    const uf = document.getElementById('uf').value;
+    const servico = document.getElementById('tipo_servico').value;
+    const capacidade = document.getElementById('velocidade').value;
+    const vigencia = document.getElementById('prazo').value;
+
+    // Constrói a URL com os parâmetros de busca
+    let url = "{% url 'processar_custo_medio' %}?cidade=" + encodeURIComponent(cidade) + 
+              "&uf=" + encodeURIComponent(uf) + 
+              "&servico=" + encodeURIComponent(servico) +
+              "&capacidade=" + encodeURIComponent(capacidade) +
+              "&vigencia=" + encodeURIComponent(vigencia);
+
+    // Faz a requisição para o backend
+    fetch(url)
+        .then(response => response.json()) // Se sua view retornar JSON
+        .then(data => {
+            document.getElementById('resultado-media').innerText = 'R$ ' + data.custo_medio;
+            document.getElementById('resultado-amostragem').innerText = data.quantidade_contratos + ' contratos';
+        })
+        .catch(err => console.error('Erro:', err));
+});
+</script>
+
 {% endblock %}

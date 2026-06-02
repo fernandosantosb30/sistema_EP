@@ -18,6 +18,7 @@ from django.contrib.auth.models import User
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.http import HttpResponse
+from django.http import JsonResponse
 from django.shortcuts import render, get_object_or_404, redirect
 from django.forms import modelform_factory
 
@@ -148,38 +149,41 @@ def consulta_provedores(request):
 
 @login_required
 def processar_custo_medio(request):
-    context = {}
+    # 1. Definimos um valor padrão seguro
+    resultado = {'custo_medio': 0.00, 'quantidade_contratos': 0}
     
-    # Se o usuário submeteu os filtros (GET)
-    if request.GET.get('cidade') or request.GET.get('uf'):
-        try:
-            engine = get_db_engine()
-            # Certifique-se de que a query seleciona todas as colunas necessárias
-            query = "SELECT cidade, uf, servico, valor_mensal, capacidade_mb, vigencia_meses FROM public.providers_contratocusto"
-            df = pd.read_sql(query, engine)
+    try:
+        engine = get_db_engine()
+        query = "SELECT cidade, uf, servico, valor_mensal, capacidade_mb, vigencia_meses FROM public.providers_contratocusto"
+        df = pd.read_sql(query, engine)
 
+        # Filtramos apenas se houver algum parâmetro enviado
+        if request.GET:
             mask = pd.Series(True, index=df.index)
             
-            if request.GET.get('uf'): mask &= (df['uf'].str.upper() == request.GET.get('uf').upper())
-            if request.GET.get('cidade'): mask &= (df['cidade'].str.contains(request.GET.get('cidade'), case=False, na=False))
-            if request.GET.get('servico'): mask &= (df['servico'] == request.GET.get('servico'))
-            if request.GET.get('capacidade'): mask &= (df['capacidade_mb'] == int(request.GET.get('capacidade')))
-            if request.GET.get('vigencia'): mask &= (df['vigencia_meses'] == int(request.GET.get('vigencia')))
+            if request.GET.get('uf'): 
+                mask &= (df['uf'].str.upper() == request.GET.get('uf').upper())
+            if request.GET.get('cidade'): 
+                mask &= (df['cidade'].str.contains(request.GET.get('cidade'), case=False, na=False))
+            if request.GET.get('servico'): 
+                mask &= (df['servico'] == request.GET.get('servico'))
+            if request.GET.get('capacidade'): 
+                mask &= (df['capacidade_mb'] == int(request.GET.get('capacidade')))
+            if request.GET.get('vigencia'): 
+                mask &= (df['vigencia_meses'] == int(request.GET.get('vigencia')))
             
             df_filtrado = df[mask]
             
             if not df_filtrado.empty:
-                # Adiciona as chaves ao contexto para o template exibir
-                context['custo_medio'] = round(float(df_filtrado['valor_mensal'].mean()), 2)
-                context['quantidade_contratos'] = len(df_filtrado)
-            else:
-                context['mensagem_erro'] = "Nenhum contrato encontrado."
-                context['custo_medio'] = 0.00
-                context['quantidade_contratos'] = 0
-        except Exception as e:
-            context['mensagem_erro'] = f"Erro: {e}"
+                resultado = {
+                    'custo_medio': round(float(df_filtrado['valor_mensal'].mean()), 2),
+                    'quantidade_contratos': int(len(df_filtrado))
+                }
+    except Exception as e:
+        # Em caso de erro no banco, retornamos um erro claro para o JS
+        return JsonResponse({'error': str(e)}, status=500)
 
-    return render(request, 'providers/custo_medio_integrado.html', context)
+    return JsonResponse(resultado)
 
 # --- Nova Função de Processamento em Lote (CSV) ---
 @login_required

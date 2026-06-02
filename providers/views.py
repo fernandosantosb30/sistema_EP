@@ -148,7 +148,9 @@ def consulta_provedores(request):
 @login_required
 def processar_custo_medio(request):
     context = {}
-    if not request.GET:
+    
+    # Se não houver parâmetros, apenas mostra a página vazia
+    if not request.GET.get('cidade') and not request.GET.get('uf'):
         return render(request, 'providers/custo_medio_integrado.html', context)
 
     try:
@@ -157,17 +159,27 @@ def processar_custo_medio(request):
         df = pd.read_sql(query, engine)
 
         mask = pd.Series(True, index=df.index)
-        if request.GET.get('uf'): mask &= (df['uf'].str.upper() == request.GET.get('uf').upper())
-        if request.GET.get('cidade'): mask &= (df['cidade'].str.contains(request.GET.get('cidade'), case=False, na=False))
-        if request.GET.get('servico'): mask &= (df['servico'] == request.GET.get('servico'))
-        if request.GET.get('capacidade'): mask &= (df['capacidade_mb'] == int(request.GET.get('capacidade')))
-        if request.GET.get('vigencia'): mask &= (df['vigencia_meses'] == int(request.GET.get('vigencia')))
+        
+        # Filtros condicionais
+        if request.GET.get('uf'): 
+            mask &= (df['uf'].str.upper() == request.GET.get('uf').upper())
+        if request.GET.get('cidade'): 
+            mask &= (df['cidade'].str.contains(request.GET.get('cidade'), case=False, na=False))
+        if request.GET.get('servico'): 
+            mask &= (df['servico'] == request.GET.get('servico'))
+        if request.GET.get('capacidade'): 
+            mask &= (df['capacidade_mb'] == int(request.GET.get('capacidade')))
 
         df_filtrado = df[mask]
+        
         if not df_filtrado.empty:
-            context.update({'custo_medio': round(float(df_filtrado['valor_mensal'].mean()), 2), 'quantidade_contratos': len(df_filtrado)})
+            context.update({
+                'custo_medio': round(float(df_filtrado['valor_mensal'].mean()), 2), 
+                'quantidade_contratos': len(df_filtrado)
+            })
         else:
-            context['mensagem_erro'] = "Nenhum contrato encontrado."
+            context['mensagem_erro'] = "Nenhum contrato encontrado para os critérios selecionados."
+            
     except Exception as e:
         context['mensagem_erro'] = f"Erro ao processar dados: {e}"
 

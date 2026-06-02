@@ -1,20 +1,51 @@
-{% extends 'base.html' %} 
+{% extends 'base.html' %}
 
 {% block content %}
-<div class="container-fluid">
-    <h2>Painel de Custo Médio</h2>
-    
-    <form method="GET" action="{% url 'processar_custo_medio' %}" class="row g-3 mb-4">
-        <div class="col-md-3">
-            <input type="text" name="cidade" class="form-control" placeholder="Cidade" value="{{ request.GET.cidade }}">
-        </div>
-        <div class="col-md-2">
-            <input type="text" name="uf" class="form-control" placeholder="UF" value="{{ request.GET.uf }}">
-        </div>
-        <div class="col-md-2 text-end">
-            <button type="submit" class="btn btn-primary">Pesquisar</button>
-        </div>
-    </form>
-    
+<div class="container mt-4">
+    <h2 class="text-white mb-4"><i class="bi bi-calculator text-primary"></i> Painel de Análise de Custo Médio</h2>
+
+    <div class="card bg-dark border-primary p-4">
+        <h5 class="text-primary mb-3">Filtros de Pesquisa</h5>
+        <form method="GET" action="{% url 'processar_custo_medio' %}" class="row g-3">
+            <div class="col-md-6">
+                <input type="text" name="cidade" class="form-control bg-dark text-white" placeholder="Ex: Santa Maria" value="{{ request.GET.cidade }}">
+            </div>
+            <div class="col-md-6">
+                <input type="text" name="uf" class="form-control bg-dark text-white" placeholder="UF" value="{{ request.GET.uf }}">
+            </div>
+            <div class="col-md-6">
+                <select name="servico" class="form-select bg-dark text-white">
+                    <option value="">Tipo de Serviço (Todos)</option>
+                    <option value="Fibra" {% if request.GET.servico == 'Fibra' %}selected{% endif %}>Fibra</option>
+                    <option value="Radio" {% if request.GET.servico == 'Radio' %}selected{% endif %}>Radio</option>
+                </select>
+            </div>
+            <div class="col-md-6">
+                <input type="number" name="capacidade" class="form-control bg-dark text-white" placeholder="Velocidade (MB)" value="{{ request.GET.capacidade }}">
+            </div>
+            <div class="col-12">
+                <button type="submit" class="btn btn-primary w-100 fw-bold">Calcular Custo Médio</button>
+            </div>
+        </form>
     </div>
+
+    {% if custo_medio is not None %}
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <div class="card bg-dark border-success p-3 text-center">
+                <h6 class="text-success">Média Estimada</h6>
+                <h3 class="text-white">R$ {{ custo_medio }}</h3>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card bg-dark border-info p-3 text-center">
+                <h6 class="text-info">Amostragem</h6>
+                <h3 class="text-white">{{ quantidade_contratos }} contratos</h3>
+            </div>
+        </div>
+    </div>
+    {% elif mensagem_erro %}
+    <div class="alert alert-danger mt-4">{{ mensagem_erro }}</div>
+    {% endif %}
+</div>
 {% endblock %}

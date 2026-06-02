@@ -54,8 +54,6 @@ class Contato(models.Model):
     cargo = models.CharField(max_length=100, null=True, blank=True)
     telefone = models.CharField(max_length=20, null=True, blank=True)
     email = models.EmailField(null=True, blank=True)
-    # Adicione a linha abaixo aqui:
-    prioridade = models.IntegerField(default=1)
 
     class Meta:
         app_label = 'providers'

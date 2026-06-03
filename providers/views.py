@@ -150,7 +150,8 @@ def consulta_provedores(request):
 @login_required
 def processar_custo_medio(request):
     engine = get_db_engine()
-    query = "SELECT cidade, uf, servico, valor_mensal, capacidade_mb, vigencia_meses FROM public.providers_contratocusto"
+    # CORREÇÃO: Adicionado 'ip_fixo' na query SQL abaixo
+    query = "SELECT cidade, uf, servico, valor_mensal, capacidade_mb, vigencia_meses, ip_fixo FROM public.providers_contratocusto"
     df = pd.read_sql(query, engine)
 
     # 1. Se for apenas o carregamento inicial da página (sem parâmetros GET)
@@ -158,6 +159,7 @@ def processar_custo_medio(request):
         context = {
             'servicos': sorted([s for s in df['servico'].unique() if s]),
             'vigencias': sorted([v for v in df['vigencia_meses'].unique() if pd.notnull(v)]),
+            # Agora que a coluna foi carregada no SELECT, este código funcionará
             'ips_fixos': sorted([str(ip) for ip in df['ip_fixo'].unique() if pd.notnull(ip)])
         }
         return render(request, 'providers/custo_medio_integrado.html', context)
@@ -178,7 +180,6 @@ def processar_custo_medio(request):
             mask &= (df['capacidade_mb'] == int(request.GET.get('capacidade')))
         if request.GET.get('vigencia'): 
             mask &= (df['vigencia_meses'] == int(request.GET.get('vigencia')))
-        
         
         df_filtrado = df[mask]
         

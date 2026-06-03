@@ -366,51 +366,29 @@ def importar_e_mapear_projeto(request):
     if request.method == 'POST' and request.FILES.get('arquivo_cidades'):
         try:
             arquivo = request.FILES['arquivo_cidades']
+            df = pd.read_csv(arquivo, encoding='latin-1', sep=None, engine='python', header=None, on_bad_lines='skip')
             
-            # CORREÇÃO 1: Definir encoding 'latin-1' (compatível com MS-DOS/Excel)
-            # CORREÇÃO 2: Tentar detectar o separador com mais tolerância
-            # O 'on_bad_lines' ignora linhas mal formatadas para não quebrar o processo
-            df = pd.read_csv(
-                arquivo, 
-                encoding='latin-1', 
-                sep=None, 
-                engine='python', 
-                on_bad_lines='skip' 
-            )
-            
-            # Limpeza básica das colunas
-            df.columns = [str(c).strip() for c in df.columns]
-            
-            # OTIMIZAÇÃO: Carrega provedores em dicionário
+            # Carrega provedores em dicionário pelo nome (lower case)
             provedores_dict = {p.nome.lower(): p for p in Provedor.objects.all()}
             
             resultado = []
             for _, row in df.iterrows():
-                # Tratamento de erro caso o arquivo venha vazio ou com colunas em branco
-                if row.isnull().all():
-                    continue
-
-                # Pega as colunas de forma genérica
-                nome_fornecedor = str(row.iloc[0]).strip() if pd.notnull(row.iloc[0]) else ""
-                contato = str(row.iloc[1]).strip() if len(row) > 1 and pd.notnull(row.iloc[1]) else ""
+                valores = [str(x).strip() for x in row if pd.notnull(x)]
+                if not valores: continue
                 
-                # Busca no dicionário em memória (rápido)
-                # Normalizamos o nome para comparação (removemos espaços extras e passamos pra minúsculo)
-                provedor = provedores_dict.get(nome_fornecedor.lower())
+                nome_buscado = valores[0].lower()
+                # Tenta encontrar o objeto Provedor real no dicionário
+                provedor = provedores_dict.get(nome_buscado)
                 
-                trunk_status = "BST" if provedor and getattr(provedor, 'parceiro_bst', False) else ""
-                
-                resultado.append({
-                    'fornecedor': nome_fornecedor,
-                    'contato': contato,
-                    'trunk': trunk_status
-                })
+                if provedor:
+                    # Adicionamos o objeto Provedor completo na lista
+                    resultado.append(provedor)
             
             context['mapeamento'] = resultado
-            messages.success(request, f"Arquivo processado com sucesso! {len(resultado)} linhas mapeadas.")
+            messages.success(request, f"Mapeamento concluído! {len(resultado)} provedores encontrados.")
             
         except Exception as e:
-            messages.error(request, f"Erro ao processar arquivo: {str(e)}")
+            messages.error(request, f"Erro: {str(e)}")
             
     return render(request, 'providers/consulta.html', context)
 

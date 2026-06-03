@@ -21,6 +21,7 @@ from django.http import HttpResponse
 from django.http import JsonResponse
 from django.shortcuts import render, get_object_or_404, redirect
 from django.forms import modelform_factory
+from django.db.models.functions import Lower, Replace, Trim
 
 # --- MODELOS E FORMULÁRIOS LOCAIS ---
 from .models import Provedor, Contato, CidadeAtendida
@@ -367,29 +368,22 @@ def importar_e_mapear_projeto(request):
         try:
             arquivo = request.FILES['arquivo_cidades']
             df = pd.read_csv(arquivo, encoding='latin-1', sep=';', engine='python', header=0)
-            df.columns = [str(c).lower().strip() for c in df.columns]
             
             resultado = []
-            
-            # --- DEBUG: Vamos imprimir no terminal do servidor ---
-            print(f"Total de cidades no CSV: {len(df)}")
-            
-            if 'cidade' in df.columns:
-                for _, row in df.iterrows():
-                    nome_cidade = str(row['cidade']).strip()
-                    if not nome_cidade: continue
-                    
-                    # Filtra provedores
-                    cidades_encontradas = Provedor.objects.filter(
-                        cidadeatendida__cidade__icontains=nome_cidade
-                    ).distinct()
-                    
-                    # DEBUG: Mostra o que o sistema está tentando achar
-                    print(f"Buscando '{nome_cidade}': Encontrei {cidades_encontradas.count()} provedor(es).")
-                    
-                    for p in cidades_encontradas:
-                        if p not in resultado:
-                            resultado.append(p)
+            for _, row in df.iterrows():
+                # 1. Limpa o nome do CSV (remove espaços extras)
+                nome_cidade_csv = str(row['cidade']).strip().lower()
+                if not nome_cidade_csv: continue
+                
+                # 2. Busca ignorando diferenças de formato no banco
+                # Usamos Lower(Trim(cidade)) para normalizar os dados do banco na hora da consulta
+                provedores = Provedor.objects.annotate(
+                    cidade_limpa=Lower(Trim('cidadeatendida__cidade'))
+                ).filter(cidade_limpa__icontains=nome_cidade_csv).distinct()
+                
+                for p in provedores:
+                    if p not in resultado:
+                        resultado.append(p)
             
             context['mapeamento'] = resultado
             if not resultado:

@@ -21,7 +21,7 @@ from django.http import HttpResponse
 from django.http import JsonResponse
 from django.shortcuts import render, get_object_or_404, redirect
 from django.forms import modelform_factory
-from django.db.models.functions import Lower, Replace, Trim
+from django.db.models.functions import Lower, Trim
 
 # --- MODELOS E FORMULÁRIOS LOCAIS ---
 from .models import Provedor, Contato, CidadeAtendida
@@ -363,37 +363,52 @@ def excluir_todas_cidades(request, provedor_id):
 
 # --- IMPORTAÇÃO E MAPEAMENTO ---
 @login_required
-def importar_e_mapear_projeto(request):
+def importar_mapeamento(request):
     context = {}
     if request.method == 'POST' and request.FILES.get('arquivo_cidades'):
         try:
-            arquivo = request.FILES['arquivo_cidades']
-            df = pd.read_csv(arquivo, encoding='latin-1', sep=';', engine='python', header=0)
+            arquivo_binario = request.FILES['arquivo_cidades']
+            
+            # --- CORREÇÃO MS-DOS/BYTES ---
+            # TextIOWrapper decodifica os bytes para string corretamente.
+            # 'latin-1' lida com acentuação comum em arquivos de sistemas legados/MS-DOS.
+            arquivo_texto = io.TextIOWrapper(arquivo_binario.file, encoding='latin-1')
+            
+            # engine='python' e sep=None fazem a detecção automática de delimitadores
+            df = pd.read_csv(
+                arquivo_texto, 
+                sep=None, 
+                engine='python', 
+                header=0, 
+                on_bad_lines='skip'
+            )
+            
+            # Padroniza nomes das colunas para buscar 'cidade' independentemente de maiúsculas
+            df.columns = [str(c).lower().strip() for c in df.columns]
             
             resultado = []
-            for _, row in df.iterrows():
-                # 1. Limpa o nome do CSV (remove espaços extras)
-                nome_cidade_csv = str(row['cidade']).strip().lower()
-                if not nome_cidade_csv: continue
-                
-                # 2. Busca ignorando diferenças de formato no banco
-                # Usamos Lower(Trim(cidade)) para normalizar os dados do banco na hora da consulta
-                provedores = Provedor.objects.annotate(
-                    cidade_limpa=Lower(Trim('cidadeatendida__cidade'))
-                ).filter(cidade_limpa__icontains=nome_cidade_csv).distinct()
-                
-                for p in provedores:
-                    if p not in resultado:
-                        resultado.append(p)
+            if 'cidade' in df.columns:
+                for _, row in df.iterrows():
+                    nome_cidade_csv = str(row['cidade']).strip().lower()
+                    if not nome_cidade_csv: continue
+                    
+                    # Busca normalizando o campo no banco para minúsculo e sem espaços nas pontas
+                    provedores = Provedor.objects.annotate(
+                        cidade_limpa=Lower(Trim('cidadeatendida__cidade'))
+                    ).filter(cidade_limpa__icontains=nome_cidade_csv).distinct()
+                    
+                    for p in provedores:
+                        if p not in resultado:
+                            resultado.append(p)
             
             context['mapeamento'] = resultado
             if not resultado:
-                messages.warning(request, "Nenhum provedor encontrado para as cidades listadas no arquivo.")
+                messages.warning(request, "Processado, mas nenhum provedor correspondente foi encontrado.")
             else:
-                messages.success(request, f"Mapeamento concluído! {len(resultado)} provedores encontrados.")
+                messages.success(request, f"Sucesso! {len(resultado)} provedores encontrados.")
             
         except Exception as e:
-            messages.error(request, f"Erro crítico: {str(e)}")
+            messages.error(request, f"Erro ao processar arquivo: {str(e)}")
             
     return render(request, 'providers/consulta.html', context)
 

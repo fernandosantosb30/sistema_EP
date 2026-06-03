@@ -33,11 +33,11 @@
             </div>
             <div class="col-md-6">
                 <select id="ip_fixo" name="ip_fixo" class="form-select bg-dark text-white">
-                <option value="">IP Fixo (Todos)</option>
-                    {% for ip in ips_fixos %}
-                        <option value="{{ ip }}">{{ ip }}</option>
-                    {% endfor %}
-                </select>
+                    <option value="">IP Fixo (Todos)</option>
+                {% for ip in ips_fixos %}
+                    <option value="{{ ip }}">{{ ip }}</option>
+                {% endfor %}
+            </select>
             </div>
             <div class="col-md-12">
                 <select id="prazo" name="vigencia" class="form-select bg-dark text-white">
@@ -99,7 +99,8 @@ document.getElementById('btn-calcular').addEventListener('click', function() {
         uf: document.getElementById('uf').value,
         servico: document.getElementById('tipo_servico').value,
         capacidade: document.getElementById('velocidade').value,
-        vigencia: document.getElementById('prazo').value
+        vigencia: document.getElementById('prazo').value,
+        ip_fixo: document.getElementById('ip_fixo').value
     });
 
     fetch(`/custo-medio/?${params.toString()}`)

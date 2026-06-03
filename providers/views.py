@@ -172,10 +172,13 @@ def processar_custo_medio(request):
             mask &= (df['cidade'].str.contains(request.GET.get('cidade'), case=False, na=False))
         if request.GET.get('servico'): 
             mask &= (df['servico'] == request.GET.get('servico'))
+        if request.GET.get('ip_fixo'):
+            mask &= (df['ip_fixo'].astype(str) == request.GET.get('ip_fixo'))
         if request.GET.get('capacidade'): 
             mask &= (df['capacidade_mb'] == int(request.GET.get('capacidade')))
         if request.GET.get('vigencia'): 
             mask &= (df['vigencia_meses'] == int(request.GET.get('vigencia')))
+        
         
         df_filtrado = df[mask]
         

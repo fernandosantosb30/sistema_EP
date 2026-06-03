@@ -37,7 +37,7 @@ urlpatterns = [
     path('provedores/<int:provedor_id>/cidades/limpar/', providers_views.excluir_todas_cidades, name='excluir_todas_cidades'),
     
     # Consultas e Mapeamento (Nome corrigido para o template)
-    path('importar-mapeamento/', providers_views.importar_cidades_csv, name='importar_mapeamento'),
+    path('importar-mapeamento/', providers_views.importar_mapeamento, name='importar_mapeamento'),
     path('consulta/', providers_views.consulta_provedores, name='consulta'), 
     path('consulta/mapeamento/', providers_views.consulta_provedores, name='consulta_provedores'), 
     path('provedores/importar-cidades/<int:provedor_id>/', providers_views.importar_cidades_csv, name='importar_cidades_csv'),

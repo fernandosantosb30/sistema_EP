@@ -181,30 +181,47 @@ def processar_custo_medio(request):
 
     # 2. Requisição de filtro (via JavaScript)
     try:
-        mask = pd.Series(True, index=df.index)
-        
-        if request.GET.get('uf'): 
-            mask &= (df['uf'].str.upper() == request.GET.get('uf').upper())
-        if request.GET.get('cidade'): 
-            mask &= (df['cidade'].str.contains(request.GET.get('cidade'), case=False, na=False))
+        # Primeiro, filtramos pelos critérios fixos (serviço, interface, etc.)
+        mask_base = pd.Series(True, index=df.index)
         if request.GET.get('servico'): 
-            mask &= (df['servico'] == request.GET.get('servico'))
+            mask_base &= (df['servico'] == request.GET.get('servico'))
         if request.GET.get('interface'):
-            mask &= (df['interface'] == request.GET.get('interface'))
+            mask_base &= (df['interface'] == request.GET.get('interface'))
         if request.GET.get('ip_fixo'):
-            mask &= (df['ip_fixo'].astype(str) == request.GET.get('ip_fixo'))
+            mask_base &= (df['ip_fixo'].astype(str) == request.GET.get('ip_fixo'))
         if request.GET.get('capacidade'): 
-            mask &= (df['capacidade_mb'] == int(request.GET.get('capacidade')))
+            mask_base &= (df['capacidade_mb'] == int(request.GET.get('capacidade')))
         if request.GET.get('vigencia'): 
-            mask &= (df['vigencia_meses'] == int(request.GET.get('vigencia')))
+            mask_base &= (df['vigencia_meses'] == int(request.GET.get('vigencia')))
+
+        # Tenta filtrar por Cidade e UF
+        mask_cidade = mask_base.copy()
+        if request.GET.get('uf'): 
+            mask_cidade &= (df['uf'].str.upper() == request.GET.get('uf').upper())
+        if request.GET.get('cidade'): 
+            mask_cidade &= (df['cidade'].str.contains(request.GET.get('cidade'), case=False, na=False))
         
-        df_filtrado = df[mask]
-        
+        df_filtrado = df[mask_cidade]
+
+        # HIERARQUIA: Se não encontrar na cidade, tenta apenas pelo UF
+        if len(df_filtrado) == 0 and request.GET.get('uf'):
+            mask_uf = mask_base.copy()
+            mask_uf &= (df['uf'].str.upper() == request.GET.get('uf').upper())
+            df_filtrado = df[mask_uf]
+            
+        # Opcional: Se ainda assim não encontrar nada, você poderia remover 
+        # o filtro de UF para pegar a média nacional/geral:
+        # if len(df_filtrado) == 0: df_filtrado = df[mask_base]
+
         resultado = {
             'custo_medio': round(float(df_filtrado['valor_mensal'].mean()), 2) if not df_filtrado.empty else 0.00,
-            'quantidade_contratos': int(len(df_filtrado))
+            'quantidade_contratos': int(len(df_filtrado)),
+            'nivel': 'Cidade' if len(df[mask_cidade]) > 0 else ('Estado' if len(df_filtrado) > 0 else 'Geral')
         }
         return JsonResponse(resultado)
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)

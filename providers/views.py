@@ -364,53 +364,59 @@ def excluir_todas_cidades(request, provedor_id):
 # --- IMPORTAÇÃO E MAPEAMENTO ---
 @login_required
 def importar_mapeamento(request):
-    context = {}
     if request.method == 'POST' and request.FILES.get('arquivo_cidades'):
         try:
             arquivo_binario = request.FILES['arquivo_cidades']
-            
-            # TextIOWrapper decodifica os bytes para string (compatível com MS-DOS)
             arquivo_texto = io.TextIOWrapper(arquivo_binario.file, encoding='latin-1')
             
-            # Lê o CSV detectando separador automaticamente
-            df = pd.read_csv(
-                arquivo_texto, 
-                sep=None, 
-                engine='python', 
-                header=0, 
-                on_bad_lines='skip'
-            )
-            
-            # Padroniza nomes das colunas
+            df = pd.read_csv(arquivo_texto, sep=None, engine='python', header=0, on_bad_lines='skip')
             df.columns = [str(c).lower().strip() for c in df.columns]
             
-            resultado = []
+            # Lista para guardar os dados finais
+            dados_csv = []
+            
             if 'cidade' in df.columns:
                 for _, row in df.iterrows():
                     nome_cidade_csv = str(row['cidade']).strip().lower()
                     if not nome_cidade_csv: continue
                     
-                    # CORREÇÃO: Usando 'cidades__nome' conforme definido no seu models.py
-                    # 'cidades' é o related_name da ForeignKey em CidadeAtendida
-                    # 'nome' é o campo dentro de CidadeAtendida
+                    # Busca os provedores
                     provedores = Provedor.objects.annotate(
                         cidade_limpa=Lower(Trim('cidades__nome'))
                     ).filter(cidade_limpa__icontains=nome_cidade_csv).distinct()
                     
                     for p in provedores:
-                        if p not in resultado:
-                            resultado.append(p)
+                        # Para cada cidade encontrada do provedor, adicionamos ao CSV
+                        for cid in p.cidades.all():
+                            contato = p.contatos.first()
+                            dados_csv.append({
+                                'Cidade': cid.nome,
+                                'UF': cid.uf,
+                                'Parceiro': p.nome,
+                                'Contato': f"{contato.telefone} / {contato.email}" if contato else "N/A",
+                                'Trunk': 'Sim' if p.parceiro_bst else 'Não'
+                            })
             
-            context['mapeamento'] = resultado
-            if not resultado:
-                messages.warning(request, "Processado, mas nenhum provedor correspondente foi encontrado.")
-            else:
-                messages.success(request, f"Sucesso! {len(resultado)} provedores encontrados.")
+            if not dados_csv:
+                messages.warning(request, "Nenhum provedor encontrado para o arquivo enviado.")
+                return render(request, 'providers/consulta.html')
+
+            # --- GERAÇÃO DO ARQUIVO PARA DOWNLOAD ---
+            response = HttpResponse(content_type='text/csv; charset=utf-8')
+            response['Content-Disposition'] = 'attachment; filename="mapeamento_provedores.csv"'
+            
+            writer = csv.writer(response, delimiter=';')
+            writer.writerow(['Cidade', 'UF', 'Parceiro', 'Contato', 'Trunk'])
+            
+            for linha in dados_csv:
+                writer.writerow([linha['Cidade'], linha['UF'], linha['Parceiro'], linha['Contato'], linha['Trunk']])
+                
+            return response
             
         except Exception as e:
             messages.error(request, f"Erro ao processar arquivo: {str(e)}")
             
-    return render(request, 'providers/consulta.html', context)
+    return render(request, 'providers/consulta.html')
 
 def normalizar_texto(texto):
     """Remove acentos, converte para maiúsculo e remove espaços extras."""
@@ -418,6 +424,27 @@ def normalizar_texto(texto):
     nfkd_form = unicodedata.normalize('NFKD', str(texto))
     texto_limpo = "".join([c for c in nfkd_form if not unicodedata.combining(c)])
     return texto_limpo.upper().strip()
+
+def exportar_mapeamento_csv(request, resultado):
+    # 'resultado' é a lista de provedores que você já encontrou
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="mapeamento_parceiros.csv"'
+
+    writer = csv.writer(response, delimiter=';')
+    writer.writerow(['Cidade', 'UF', 'Parceiro', 'Contato', 'Trunk'])
+
+    for p in resultado:
+        # Acessa as cidades relacionadas ao provedor
+        for cidade in p.cidades.all():
+            writer.writerow([
+                cidade.nome,
+                cidade.uf,
+                p.nome,
+                # Assume que o primeiro contato é o principal
+                p.contatos.first().nome if p.contatos.exists() else 'N/A',
+                'Sim' if p.parceiro_bst else 'Não'
+            ])
+    return response
 
 @login_required
 def importar_cidades_csv(request, provedor_id):

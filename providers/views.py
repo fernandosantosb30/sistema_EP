@@ -366,29 +366,39 @@ def importar_e_mapear_projeto(request):
     if request.method == 'POST' and request.FILES.get('arquivo_cidades'):
         try:
             arquivo = request.FILES['arquivo_cidades']
-            df = pd.read_csv(arquivo, encoding='latin-1', sep=None, engine='python', header=None, on_bad_lines='skip')
             
-            # Carrega provedores em dicionário pelo nome (lower case)
-            provedores_dict = {p.nome.lower(): p for p in Provedor.objects.all()}
+            # Ajuste: sep=';' e header=0 (pois seu arquivo tem cabeçalho 'cidade;uf')
+            df = pd.read_csv(
+                arquivo, 
+                encoding='latin-1', 
+                sep=';', 
+                engine='python', 
+                header=0, 
+                on_bad_lines='skip'
+            )
             
+            # Limpeza dos nomes das colunas para garantir que batam com 'cidade' e 'uf'
+            df.columns = [str(c).lower().strip() for c in df.columns]
+            
+            # Busca provedores que atendem as cidades listadas no CSV
+            # Assumindo que você quer listar provedores que atendem a cidade do CSV
             resultado = []
+            
+            # Filtra cidades atendidas pelo nome contido no CSV
             for _, row in df.iterrows():
-                valores = [str(x).strip() for x in row if pd.notnull(x)]
-                if not valores: continue
+                nome_cidade = str(row['cidade']).strip()
+                # Busca cidades no banco (filtrando pelo nome da cidade do CSV)
+                cidades_atendidas = CidadeAtendida.objects.filter(cidade__iexact=nome_cidade)
                 
-                nome_buscado = valores[0].lower()
-                # Tenta encontrar o objeto Provedor real no dicionário
-                provedor = provedores_dict.get(nome_buscado)
-                
-                if provedor:
-                    # Adicionamos o objeto Provedor completo na lista
-                    resultado.append(provedor)
+                for cidade_obj in cidades_atendidas:
+                    if cidade_obj.provedor not in resultado:
+                        resultado.append(cidade_obj.provedor)
             
             context['mapeamento'] = resultado
-            messages.success(request, f"Mapeamento concluído! {len(resultado)} provedores encontrados.")
+            messages.success(request, f"Processamento concluído! {len(resultado)} provedores encontrados para as cidades informadas.")
             
         except Exception as e:
-            messages.error(request, f"Erro: {str(e)}")
+            messages.error(request, f"Erro ao processar arquivo: {str(e)}")
             
     return render(request, 'providers/consulta.html', context)
 

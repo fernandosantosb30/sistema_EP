@@ -157,7 +157,8 @@ def processar_custo_medio(request):
     if not request.GET.get('cidade') and not request.GET.get('uf') and not request.GET.get('servico'):
         context = {
             'servicos': sorted([s for s in df['servico'].unique() if s]),
-            'vigencias': sorted([v for v in df['vigencia_meses'].unique() if pd.notnull(v)])
+            'vigencias': sorted([v for v in df['vigencia_meses'].unique() if pd.notnull(v)]),
+            'ips_fixos': sorted([str(ip) for ip in df['ip_fixo'].unique() if pd.notnull(ip)])
         }
         return render(request, 'providers/custo_medio_integrado.html', context)
 

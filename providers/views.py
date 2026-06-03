@@ -156,10 +156,16 @@ def processar_custo_medio(request):
     
     # CRIAÇÃO DO FILTRO VIRTUAL: Mapeia o serviço para a interface
     def extrair_interface(texto):
+    # Converte tudo para maiúsculo e remove acentos para garantir a leitura
         texto = str(texto).upper()
-        if 'FIBRA' in texto: return 'Fibra'
-        if 'RADIO' in texto or 'RÁDIO' in texto: return 'Rádio'
-        return 'Misto'
+    texto = unicodedata.normalize('NFKD', texto).encode('ASCII', 'ignore').decode('utf-8')
+    
+    if 'FIBRA' in texto: 
+        return 'Fibra'
+    if 'RADIO' in texto: # Agora, após remover acentos, 'RÁDIO' vira 'RADIO'
+        return 'Rádio'
+    return 'Misto'
+    if 'WIRELESS' in texto or 'RADIO' in texto: return 'Rádio'
 
     df['interface'] = df['servico'].apply(extrair_interface)
 

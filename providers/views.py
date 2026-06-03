@@ -360,32 +360,44 @@ def excluir_todas_cidades(request, provedor_id):
     return redirect('lista_provedores')
 
 # --- IMPORTAÇÃO E MAPEAMENTO ---
-
 @login_required
 def importar_e_mapear_projeto(request):
     context = {}
     if request.method == 'POST' and request.FILES.get('arquivo_cidades'):
         try:
             arquivo = request.FILES['arquivo_cidades']
-            df = pd.read_csv(arquivo, sep=None, engine='python')
+            
+            # CORREÇÃO 1: Definir encoding 'latin-1' (compatível com MS-DOS/Excel)
+            # CORREÇÃO 2: Tentar detectar o separador com mais tolerância
+            # O 'on_bad_lines' ignora linhas mal formatadas para não quebrar o processo
+            df = pd.read_csv(
+                arquivo, 
+                encoding='latin-1', 
+                sep=None, 
+                engine='python', 
+                on_bad_lines='skip' 
+            )
             
             # Limpeza básica das colunas
-            df.columns = [c.strip() for c in df.columns]
+            df.columns = [str(c).strip() for c in df.columns]
             
-            # OTIMIZAÇÃO: Carrega todos os provedores de uma vez para um dicionário (chave: nome minúsculo)
-            # Isso evita consultar o banco a cada linha do CSV
+            # OTIMIZAÇÃO: Carrega provedores em dicionário
             provedores_dict = {p.nome.lower(): p for p in Provedor.objects.all()}
             
             resultado = []
             for _, row in df.iterrows():
-                # Tenta pegar as colunas de forma genérica
-                nome_fornecedor = str(row.iloc[0]).strip()
-                contato = str(row.iloc[1]).strip() if len(row) > 1 else ""
+                # Tratamento de erro caso o arquivo venha vazio ou com colunas em branco
+                if row.isnull().all():
+                    continue
+
+                # Pega as colunas de forma genérica
+                nome_fornecedor = str(row.iloc[0]).strip() if pd.notnull(row.iloc[0]) else ""
+                contato = str(row.iloc[1]).strip() if len(row) > 1 and pd.notnull(row.iloc[1]) else ""
                 
                 # Busca no dicionário em memória (rápido)
+                # Normalizamos o nome para comparação (removemos espaços extras e passamos pra minúsculo)
                 provedor = provedores_dict.get(nome_fornecedor.lower())
                 
-                # Verifica o campo conforme definido no seu modelo
                 trunk_status = "BST" if provedor and getattr(provedor, 'parceiro_bst', False) else ""
                 
                 resultado.append({
@@ -395,10 +407,10 @@ def importar_e_mapear_projeto(request):
                 })
             
             context['mapeamento'] = resultado
-            messages.success(request, "Arquivo mapeado com sucesso!")
+            messages.success(request, f"Arquivo processado com sucesso! {len(resultado)} linhas mapeadas.")
             
         except Exception as e:
-            messages.error(request, f"Erro ao processar arquivo: {e}")
+            messages.error(request, f"Erro ao processar arquivo: {str(e)}")
             
     return render(request, 'providers/consulta.html', context)
 

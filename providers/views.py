@@ -149,41 +149,43 @@ def consulta_provedores(request):
 
 @login_required
 def processar_custo_medio(request):
-    # 1. Definimos um valor padrão seguro
-    resultado = {'custo_medio': 0.00, 'quantidade_contratos': 0}
-    
+    engine = get_db_engine()
+    query = "SELECT cidade, uf, servico, valor_mensal, capacidade_mb, vigencia_meses FROM public.providers_contratocusto"
+    df = pd.read_sql(query, engine)
+
+    # 1. Se for apenas o carregamento inicial da página (sem parâmetros GET)
+    if not request.GET.get('cidade') and not request.GET.get('uf') and not request.GET.get('servico'):
+        context = {
+            'servicos': sorted([s for s in df['servico'].unique() if s]),
+            'vigencias': sorted([v for v in df['vigencia_meses'].unique() if pd.notnull(v)])
+        }
+        return render(request, 'providers/custo_medio_integrado.html', context)
+
+    # 2. Se for uma requisição de filtro (via JavaScript fetch)
     try:
-        engine = get_db_engine()
-        query = "SELECT cidade, uf, servico, valor_mensal, capacidade_mb, vigencia_meses FROM public.providers_contratocusto"
-        df = pd.read_sql(query, engine)
+        mask = pd.Series(True, index=df.index)
+        
+        if request.GET.get('uf'): 
+            mask &= (df['uf'].str.upper() == request.GET.get('uf').upper())
+        if request.GET.get('cidade'): 
+            mask &= (df['cidade'].str.contains(request.GET.get('cidade'), case=False, na=False))
+        if request.GET.get('servico'): 
+            mask &= (df['servico'] == request.GET.get('servico'))
+        if request.GET.get('capacidade'): 
+            mask &= (df['capacidade_mb'] == int(request.GET.get('capacidade')))
+        if request.GET.get('vigencia'): 
+            mask &= (df['vigencia_meses'] == int(request.GET.get('vigencia')))
+        
+        df_filtrado = df[mask]
+        
+        resultado = {
+            'custo_medio': round(float(df_filtrado['valor_mensal'].mean()), 2) if not df_filtrado.empty else 0.00,
+            'quantidade_contratos': int(len(df_filtrado))
+        }
+        return JsonResponse(resultado)
 
-        # Filtramos apenas se houver algum parâmetro enviado
-        if request.GET:
-            mask = pd.Series(True, index=df.index)
-            
-            if request.GET.get('uf'): 
-                mask &= (df['uf'].str.upper() == request.GET.get('uf').upper())
-            if request.GET.get('cidade'): 
-                mask &= (df['cidade'].str.contains(request.GET.get('cidade'), case=False, na=False))
-            if request.GET.get('servico'): 
-                mask &= (df['servico'] == request.GET.get('servico'))
-            if request.GET.get('capacidade'): 
-                mask &= (df['capacidade_mb'] == int(request.GET.get('capacidade')))
-            if request.GET.get('vigencia'): 
-                mask &= (df['vigencia_meses'] == int(request.GET.get('vigencia')))
-            
-            df_filtrado = df[mask]
-            
-            if not df_filtrado.empty:
-                resultado = {
-                    'custo_medio': round(float(df_filtrado['valor_mensal'].mean()), 2),
-                    'quantidade_contratos': int(len(df_filtrado))
-                }
     except Exception as e:
-        # Em caso de erro no banco, retornamos um erro claro para o JS
         return JsonResponse({'error': str(e)}, status=500)
-
-    return JsonResponse(resultado)
 
 # --- Nova Função de Processamento em Lote (CSV) ---
 @login_required
@@ -323,7 +325,6 @@ def excluir_todas_cidades(request, provedor_id):
 @login_required
 def importar_e_mapear_projeto(request):
     context = {}
-    # CORREÇÃO: O nome do campo no seu HTML é 'arquivo_cidades', não 'arquivo_mapeamento'
     if request.method == 'POST' and request.FILES.get('arquivo_cidades'):
         try:
             arquivo = request.FILES['arquivo_cidades']
@@ -332,17 +333,21 @@ def importar_e_mapear_projeto(request):
             # Limpeza básica das colunas
             df.columns = [c.strip() for c in df.columns]
             
+            # OTIMIZAÇÃO: Carrega todos os provedores de uma vez para um dicionário (chave: nome minúsculo)
+            # Isso evita consultar o banco a cada linha do CSV
+            provedores_dict = {p.nome.lower(): p for p in Provedor.objects.all()}
+            
             resultado = []
             for _, row in df.iterrows():
-                # Tenta pegar as colunas de forma genérica (índice 0 e 1 caso os nomes variem)
+                # Tenta pegar as colunas de forma genérica
                 nome_fornecedor = str(row.iloc[0]).strip()
                 contato = str(row.iloc[1]).strip() if len(row) > 1 else ""
                 
-                # Busca o provedor no banco (usando o campo correto do seu modelo)
-                provedor = Provedor.objects.filter(nome__iexact=nome_fornecedor).first()
+                # Busca no dicionário em memória (rápido)
+                provedor = provedores_dict.get(nome_fornecedor.lower())
                 
-                # CORREÇÃO: usando o campo 'parceiro_bst' conforme vimos no seu HTML
-                trunk_status = "BST" if provedor and provedor.parceiro_bst else ""
+                # Verifica o campo conforme definido no seu modelo
+                trunk_status = "BST" if provedor and getattr(provedor, 'parceiro_bst', False) else ""
                 
                 resultado.append({
                     'fornecedor': nome_fornecedor,
@@ -356,7 +361,6 @@ def importar_e_mapear_projeto(request):
         except Exception as e:
             messages.error(request, f"Erro ao processar arquivo: {e}")
             
-    # Retorna para a mesma página de consulta para exibir a tabela
     return render(request, 'providers/consulta.html', context)
 
 @login_required

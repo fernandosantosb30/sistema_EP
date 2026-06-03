@@ -16,8 +16,11 @@
             
             <div class="col-md-6">
                 <select id="tipo_servico" name="servico" class="form-select bg-dark text-white">
-                    <option value="">Tipo de Serviço (Todos)</option>
-                </select>
+                <option value="">Tipo de Serviço (Todos)</option>
+                {% for s in servicos %}
+                    <option value="{{ s }}">{{ s }}</option>
+                {% endfor %}
+            </select>
             </div>
             <div class="col-md-6">
                 <input type="number" id="velocidade" name="capacidade" class="form-control bg-dark text-white" placeholder="Velocidade (MB)">
@@ -36,6 +39,9 @@
             <div class="col-md-12">
                 <select id="prazo" name="vigencia" class="form-select bg-dark text-white">
                     <option value="">Prazo Contratual (Meses)</option>
+                    {% for v in vigencias %}
+                        <option value="{{ v }}">{{ v }}</option>
+                    {% endfor %}
                 </select>
             </div>
 
@@ -84,19 +90,29 @@
 </div>
 
 <script>
-    console.log("JavaScript carregado!"); // Adicione isso para testar se o script está rodando
-
-    document.addEventListener("DOMContentLoaded", function() {
-        const btn = document.getElementById('btn-calcular');
-        if (btn) {
-            btn.addEventListener('click', function() {
-                alert("Botão clicado!"); // Teste de clique
-                // ... seu código de fetch aqui ...
-            });
-        } else {
-            console.error("Botão btn-calcular não encontrado no HTML!");
-        }
+document.getElementById('btn-calcular').addEventListener('click', function() {
+    const params = new URLSearchParams({
+        cidade: document.getElementById('cidade').value,
+        uf: document.getElementById('uf').value,
+        servico: document.getElementById('tipo_servico').value,
+        capacidade: document.getElementById('velocidade').value,
+        vigencia: document.getElementById('prazo').value
     });
+
+    fetch(`/custo-medio/?${params.toString()}`)
+    .then(res => {
+        if (!res.ok) throw new Error('Erro no servidor');
+        return res.json();
+    })
+    .then(data => {
+        document.getElementById('resultado-media').innerText = 'R$ ' + (data.custo_medio || 0).toFixed(2);
+        document.getElementById('resultado-amostragem').innerText = (data.quantidade_contratos || 0) + ' contratos';
+    })
+    .catch(err => {
+        console.error(err);
+        alert('Erro ao calcular custo. Verifique os filtros.');
+    });
+});
 </script>
 
 {% endblock %}

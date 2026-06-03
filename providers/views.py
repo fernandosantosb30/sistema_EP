@@ -146,40 +146,40 @@ def consulta_provedores(request):
     return render(request, 'providers/consulta.html', context)
 
 # --- GESTÃO DE CUSTO MÉDIO (INTEGRADA) ---
-
 @login_required
 def processar_custo_medio(request):
     engine = get_db_engine()
-    # CORREÇÃO: Removemos 'interface' daqui pois não existe no banco
+    # Query original sem a coluna 'interface' que não existe no banco
     query = "SELECT cidade, uf, servico, valor_mensal, capacidade_mb, vigencia_meses, ip_fixo FROM public.providers_contratocusto"
     df = pd.read_sql(query, engine)
     
-    # CRIAÇÃO DO FILTRO VIRTUAL: Mapeia o serviço para a interface
+    # CRIAÇÃO DO FILTRO VIRTUAL
     def extrair_interface(texto):
-    # Converte tudo para maiúsculo e remove acentos para garantir a leitura
+        # Tudo aqui dentro DEVE estar com o mesmo recuo (4 espaços)
         texto = str(texto).upper()
-    texto = unicodedata.normalize('NFKD', texto).encode('ASCII', 'ignore').decode('utf-8')
-    
-    if 'FIBRA' in texto: 
-        return 'Fibra'
-    if 'RADIO' in texto: # Agora, após remover acentos, 'RÁDIO' vira 'RADIO'
-        return 'Rádio'
-    return 'Misto'
-    if 'WIRELESS' in texto or 'RADIO' in texto: return 'Rádio'
+        # Removendo acentos
+        texto = unicodedata.normalize('NFKD', texto).encode('ASCII', 'ignore').decode('utf-8')
+        
+        if 'FIBRA' in texto: 
+            return 'Fibra'
+        if 'WIRELESS' in texto or 'RADIO' in texto: 
+            return 'Rádio'
+        return 'Misto'
 
+    # Aplica a função para criar a coluna 'interface' em memória
     df['interface'] = df['servico'].apply(extrair_interface)
 
-    # 1. Carregamento inicial
+    # 1. Carregamento inicial (sem filtros)
     if not request.GET.get('cidade') and not request.GET.get('uf') and not request.GET.get('servico'):
         context = {
             'servicos': sorted([s for s in df['servico'].unique() if s]),
             'vigencias': sorted([v for v in df['vigencia_meses'].unique() if pd.notnull(v)]),
             'ips_fixos': sorted([str(ip) for ip in df['ip_fixo'].unique() if pd.notnull(ip)]),
-            'interfaces': sorted(df['interface'].unique()) # Usa a coluna virtual
+            'interfaces': sorted(df['interface'].unique()) 
         }
         return render(request, 'providers/custo_medio_integrado.html', context)
 
-    # 2. Requisição de filtro
+    # 2. Requisição de filtro (via JavaScript)
     try:
         mask = pd.Series(True, index=df.index)
         
@@ -189,7 +189,7 @@ def processar_custo_medio(request):
             mask &= (df['cidade'].str.contains(request.GET.get('cidade'), case=False, na=False))
         if request.GET.get('servico'): 
             mask &= (df['servico'] == request.GET.get('servico'))
-        if request.GET.get('interface'): # Filtra pela coluna virtual
+        if request.GET.get('interface'):
             mask &= (df['interface'] == request.GET.get('interface'))
         if request.GET.get('ip_fixo'):
             mask &= (df['ip_fixo'].astype(str) == request.GET.get('ip_fixo'))

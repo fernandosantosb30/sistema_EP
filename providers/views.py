@@ -369,12 +369,10 @@ def importar_mapeamento(request):
         try:
             arquivo_binario = request.FILES['arquivo_cidades']
             
-            # --- CORREÇÃO MS-DOS/BYTES ---
-            # TextIOWrapper decodifica os bytes para string corretamente.
-            # 'latin-1' lida com acentuação comum em arquivos de sistemas legados/MS-DOS.
+            # TextIOWrapper decodifica os bytes para string (compatível com MS-DOS)
             arquivo_texto = io.TextIOWrapper(arquivo_binario.file, encoding='latin-1')
             
-            # engine='python' e sep=None fazem a detecção automática de delimitadores
+            # Lê o CSV detectando separador automaticamente
             df = pd.read_csv(
                 arquivo_texto, 
                 sep=None, 
@@ -383,7 +381,7 @@ def importar_mapeamento(request):
                 on_bad_lines='skip'
             )
             
-            # Padroniza nomes das colunas para buscar 'cidade' independentemente de maiúsculas
+            # Padroniza nomes das colunas
             df.columns = [str(c).lower().strip() for c in df.columns]
             
             resultado = []
@@ -392,9 +390,11 @@ def importar_mapeamento(request):
                     nome_cidade_csv = str(row['cidade']).strip().lower()
                     if not nome_cidade_csv: continue
                     
-                    # Busca normalizando o campo no banco para minúsculo e sem espaços nas pontas
+                    # CORREÇÃO: Usando 'cidades__nome' conforme definido no seu models.py
+                    # 'cidades' é o related_name da ForeignKey em CidadeAtendida
+                    # 'nome' é o campo dentro de CidadeAtendida
                     provedores = Provedor.objects.annotate(
-                        cidade_limpa=Lower(Trim('cidadeatendida__cidade'))
+                        cidade_limpa=Lower(Trim('cidades__nome'))
                     ).filter(cidade_limpa__icontains=nome_cidade_csv).distinct()
                     
                     for p in provedores:

@@ -355,6 +355,7 @@ def excluir_cidade(request, cidade_id):
     get_object_or_404(CidadeAtendida, id=cidade_id).delete()
     return redirect('lista_provedores')
 
+@user_passes_test(e_admin)
 @login_required
 def excluir_todas_cidades(request, provedor_id):
     CidadeAtendida.objects.filter(provedor_id=provedor_id).delete()
@@ -396,6 +397,13 @@ def importar_e_mapear_projeto(request):
             
     return render(request, 'providers/consulta.html', context)
 
+def normalizar_texto(texto):
+    """Remove acentos, converte para maiúsculo e remove espaços extras."""
+    if not texto or pd.isna(texto): return ""
+    nfkd_form = unicodedata.normalize('NFKD', str(texto))
+    texto_limpo = "".join([c for c in nfkd_form if not unicodedata.combining(c)])
+    return texto_limpo.upper().strip()
+
 @login_required
 def importar_cidades_csv(request, provedor_id):
     provedor = get_object_or_404(Provedor, id=provedor_id)
@@ -403,23 +411,29 @@ def importar_cidades_csv(request, provedor_id):
     if request.method == 'POST' and request.FILES.get('arquivo_csv'):
         try:
             csv_file = request.FILES['arquivo_csv']
-            # O engine='python' com sep=None detecta automaticamente o separador (vírgula, ponto e vírgula, etc.)
-            df = pd.read_csv(csv_file, sep=None, engine='python')
+            
+            # Leitura robusta: aceita latin-1, qualquer separador e ignora linhas ruins
+            df = pd.read_csv(
+                csv_file, 
+                encoding='latin-1', 
+                sep=None, 
+                engine='python', 
+                on_bad_lines='skip'
+            )
             
             novos = 0
             existentes = 0
             
             for _, row in df.iterrows():
-                # Normaliza para string, remove espaços extras e transforma em maiúsculas
-                nome_cidade = str(row.iloc[0]).strip().upper()
-                # Assume que a segunda coluna é a UF, se existir
-                uf_cidade = str(row.iloc[1]).strip().upper() if len(row) > 1 else "XX"
+                # Normaliza os dados usando a função de limpeza acima
+                nome_cidade = normalizar_texto(row.iloc[0])
+                uf_cidade = normalizar_texto(row.iloc[1]) if len(row) > 1 else "XX"
                 
                 if nome_cidade:
-                    # Tenta buscar ou criar: se já existir a combinação provedor + nome + uf, ele ignora
+                    # Busca ou cria normalizando a busca também
                     obj, criado = CidadeAtendida.objects.get_or_create(
                         provedor=provedor, 
-                        nome=nome_cidade,
+                        nome=nome_cidade, # Certifique-se que o campo no model é 'nome'
                         uf=uf_cidade
                     )
                     
@@ -428,10 +442,9 @@ def importar_cidades_csv(request, provedor_id):
                     else:
                         existentes += 1
             
-            messages.success(request, f"Importação concluída: {novos} novas cidades adicionadas. ({existentes} já existiam e foram ignoradas).")
+            messages.success(request, f"Importação concluída: {novos} novas cidades. ({existentes} já existiam).")
             
         except Exception as e:
             messages.error(request, f"Erro ao processar o arquivo: {str(e)}")
             
-    # Redireciona de volta para a tela de edição do provedor para que o usuário veja o resultado
     return redirect('editar_provedor', pk=provedor.id)

@@ -372,49 +372,47 @@ def importar_mapeamento(request):
             df = pd.read_csv(arquivo_texto, sep=None, engine='python', header=0, on_bad_lines='skip')
             df.columns = [str(c).lower().strip() for c in df.columns]
             
-            # Lista para guardar os dados finais
-            dados_csv = []
+            # --- PREPARAÇÃO DO CSV ---
+            response = HttpResponse(content_type='text/csv; charset=utf-8')
+            response['Content-Disposition'] = 'attachment; filename="mapeamento_filtrado.csv"'
+            writer = csv.writer(response, delimiter=';')
+            writer.writerow(['Cidade', 'UF', 'Parceiro', 'Contato', 'Trunk'])
+            
+            encontrou_algum = False
             
             if 'cidade' in df.columns:
                 for _, row in df.iterrows():
                     nome_cidade_csv = str(row['cidade']).strip().lower()
                     if not nome_cidade_csv: continue
                     
-                    # Busca os provedores
-                    provedores = Provedor.objects.annotate(
-                        cidade_limpa=Lower(Trim('cidades__nome'))
-                    ).filter(cidade_limpa__icontains=nome_cidade_csv).distinct()
+                    # Filtra apenas provedores que atendem a ESPECÍFICA cidade da linha
+                    provedores = Provedor.objects.filter(
+                        cidades__nome__icontains=nome_cidade_csv
+                    ).distinct()
                     
                     for p in provedores:
-                        # Para cada cidade encontrada do provedor, adicionamos ao CSV
-                        for cid in p.cidades.all():
-                            contato = p.contatos.first()
-                            dados_csv.append({
-                                'Cidade': cid.nome,
-                                'UF': cid.uf,
-                                'Parceiro': p.nome,
-                                'Contato': f"{contato.telefone} / {contato.email}" if contato else "N/A",
-                                'Trunk': 'Sim' if p.parceiro_bst else 'Não'
-                            })
+                        # Busca o objeto da cidade no banco para pegar o UF
+                        cidade_obj = p.cidades.filter(nome__icontains=nome_cidade_csv).first()
+                        
+                        contato = p.contatos.first()
+                        writer.writerow([
+                            nome_cidade_csv.upper(),
+                            cidade_obj.uf if cidade_obj else "N/A",
+                            p.nome,
+                            f"{contato.nome} ({contato.telefone})" if contato else "N/A",
+                            'Sim' if p.parceiro_bst else 'Não'
+                        ])
+                        encontrou_algum = True
             
-            if not dados_csv:
-                messages.warning(request, "Nenhum provedor encontrado para o arquivo enviado.")
+            if not encontrou_algum:
+                messages.warning(request, "Nenhum mapeamento encontrado para as cidades informadas.")
                 return render(request, 'providers/consulta.html')
 
-            # --- GERAÇÃO DO ARQUIVO PARA DOWNLOAD ---
-            response = HttpResponse(content_type='text/csv; charset=utf-8')
-            response['Content-Disposition'] = 'attachment; filename="mapeamento_provedores.csv"'
-            
-            writer = csv.writer(response, delimiter=';')
-            writer.writerow(['Cidade', 'UF', 'Parceiro', 'Contato', 'Trunk'])
-            
-            for linha in dados_csv:
-                writer.writerow([linha['Cidade'], linha['UF'], linha['Parceiro'], linha['Contato'], linha['Trunk']])
-                
-            return response
+            return response # Retorna o arquivo para download automático
             
         except Exception as e:
-            messages.error(request, f"Erro ao processar arquivo: {str(e)}")
+            messages.error(request, f"Erro ao processar: {str(e)}")
+            return render(request, 'providers/consulta.html')
             
     return render(request, 'providers/consulta.html')
 

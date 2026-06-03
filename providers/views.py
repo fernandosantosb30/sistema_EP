@@ -367,7 +367,7 @@ def importar_e_mapear_projeto(request):
         try:
             arquivo = request.FILES['arquivo_cidades']
             
-            # Ajuste: sep=';' e header=0 (pois seu arquivo tem cabeçalho 'cidade;uf')
+            # Lê o CSV usando o separador ; e tratando a primeira linha como cabeçalho
             df = pd.read_csv(
                 arquivo, 
                 encoding='latin-1', 
@@ -377,28 +377,35 @@ def importar_e_mapear_projeto(request):
                 on_bad_lines='skip'
             )
             
-            # Limpeza dos nomes das colunas para garantir que batam com 'cidade' e 'uf'
+            # Limpa nomes das colunas
             df.columns = [str(c).lower().strip() for c in df.columns]
             
-            # Busca provedores que atendem as cidades listadas no CSV
-            # Assumindo que você quer listar provedores que atendem a cidade do CSV
             resultado = []
-            
-            # Filtra cidades atendidas pelo nome contido no CSV
-            for _, row in df.iterrows():
-                nome_cidade = str(row['cidade']).strip()
-                # Busca cidades no banco (filtrando pelo nome da cidade do CSV)
-                cidades_atendidas = CidadeAtendida.objects.filter(cidade__iexact=nome_cidade)
-                
-                for cidade_obj in cidades_atendidas:
-                    if cidade_obj.provedor not in resultado:
-                        resultado.append(cidade_obj.provedor)
+            if 'cidade' in df.columns:
+                # Busca provedores que atendem as cidades listadas
+                # Usamos icontains para ser mais tolerante com espaços/acentos
+                for _, row in df.iterrows():
+                    nome_cidade = str(row['cidade']).strip()
+                    if not nome_cidade: continue
+                    
+                    # Filtra provedores através da CidadeAtendida
+                    # .distinct() evita provedores duplicados na lista
+                    provedores = Provedor.objects.filter(
+                        cidadeatendida__cidade__icontains=nome_cidade
+                    ).distinct()
+                    
+                    for p in provedores:
+                        if p not in resultado:
+                            resultado.append(p)
             
             context['mapeamento'] = resultado
-            messages.success(request, f"Processamento concluído! {len(resultado)} provedores encontrados para as cidades informadas.")
+            if not resultado:
+                messages.warning(request, "Nenhum provedor encontrado para as cidades listadas no arquivo.")
+            else:
+                messages.success(request, f"Mapeamento concluído! {len(resultado)} provedores encontrados.")
             
         except Exception as e:
-            messages.error(request, f"Erro ao processar arquivo: {str(e)}")
+            messages.error(request, f"Erro crítico: {str(e)}")
             
     return render(request, 'providers/consulta.html', context)
 

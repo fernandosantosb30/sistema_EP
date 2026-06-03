@@ -150,21 +150,30 @@ def consulta_provedores(request):
 @login_required
 def processar_custo_medio(request):
     engine = get_db_engine()
-    # CORREÇÃO: Adicionado 'ip_fixo' na query SQL abaixo
+    # CORREÇÃO: Removemos 'interface' daqui pois não existe no banco
     query = "SELECT cidade, uf, servico, valor_mensal, capacidade_mb, vigencia_meses, ip_fixo FROM public.providers_contratocusto"
     df = pd.read_sql(query, engine)
+    
+    # CRIAÇÃO DO FILTRO VIRTUAL: Mapeia o serviço para a interface
+    def extrair_interface(texto):
+        texto = str(texto).upper()
+        if 'FIBRA' in texto: return 'Fibra'
+        if 'RADIO' in texto or 'RÁDIO' in texto: return 'Rádio'
+        return 'Misto'
 
-    # 1. Se for apenas o carregamento inicial da página (sem parâmetros GET)
+    df['interface'] = df['servico'].apply(extrair_interface)
+
+    # 1. Carregamento inicial
     if not request.GET.get('cidade') and not request.GET.get('uf') and not request.GET.get('servico'):
         context = {
             'servicos': sorted([s for s in df['servico'].unique() if s]),
             'vigencias': sorted([v for v in df['vigencia_meses'].unique() if pd.notnull(v)]),
-            # Agora que a coluna foi carregada no SELECT, este código funcionará
-            'ips_fixos': sorted([str(ip) for ip in df['ip_fixo'].unique() if pd.notnull(ip)])
+            'ips_fixos': sorted([str(ip) for ip in df['ip_fixo'].unique() if pd.notnull(ip)]),
+            'interfaces': sorted(df['interface'].unique()) # Usa a coluna virtual
         }
         return render(request, 'providers/custo_medio_integrado.html', context)
 
-    # 2. Se for uma requisição de filtro (via JavaScript fetch)
+    # 2. Requisição de filtro
     try:
         mask = pd.Series(True, index=df.index)
         
@@ -174,6 +183,8 @@ def processar_custo_medio(request):
             mask &= (df['cidade'].str.contains(request.GET.get('cidade'), case=False, na=False))
         if request.GET.get('servico'): 
             mask &= (df['servico'] == request.GET.get('servico'))
+        if request.GET.get('interface'): # Filtra pela coluna virtual
+            mask &= (df['interface'] == request.GET.get('interface'))
         if request.GET.get('ip_fixo'):
             mask &= (df['ip_fixo'].astype(str) == request.GET.get('ip_fixo'))
         if request.GET.get('capacidade'): 

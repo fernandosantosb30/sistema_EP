@@ -28,7 +28,10 @@
 
             <div class="col-md-6">
                 <select id="interface" name="interface" class="form-select bg-dark text-white">
-                    <option value="">Interface (Todos)</option>
+                <option value="">Interface (Todos)</option>
+                {% for i in interfaces %}
+                    <option value="{{ i }}">{{ i }}</option>
+                {% endfor %}
                 </select>
             </div>
             <div class="col-md-6">
@@ -101,6 +104,7 @@ document.getElementById('btn-calcular').addEventListener('click', function() {
         capacidade: document.getElementById('velocidade').value,
         vigencia: document.getElementById('prazo').value,
         ip_fixo: document.getElementById('ip_fixo').value
+        interface: document.getElementById('interface').value
     });
 
     fetch(`/custo-medio/?${params.toString()}`)

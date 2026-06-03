@@ -366,35 +366,28 @@ def importar_e_mapear_projeto(request):
     if request.method == 'POST' and request.FILES.get('arquivo_cidades'):
         try:
             arquivo = request.FILES['arquivo_cidades']
-            
-            # Lê o CSV usando o separador ; e tratando a primeira linha como cabeçalho
-            df = pd.read_csv(
-                arquivo, 
-                encoding='latin-1', 
-                sep=';', 
-                engine='python', 
-                header=0, 
-                on_bad_lines='skip'
-            )
-            
-            # Limpa nomes das colunas
+            df = pd.read_csv(arquivo, encoding='latin-1', sep=';', engine='python', header=0)
             df.columns = [str(c).lower().strip() for c in df.columns]
             
             resultado = []
+            
+            # --- DEBUG: Vamos imprimir no terminal do servidor ---
+            print(f"Total de cidades no CSV: {len(df)}")
+            
             if 'cidade' in df.columns:
-                # Busca provedores que atendem as cidades listadas
-                # Usamos icontains para ser mais tolerante com espaços/acentos
                 for _, row in df.iterrows():
                     nome_cidade = str(row['cidade']).strip()
                     if not nome_cidade: continue
                     
-                    # Filtra provedores através da CidadeAtendida
-                    # .distinct() evita provedores duplicados na lista
-                    provedores = Provedor.objects.filter(
+                    # Filtra provedores
+                    cidades_encontradas = Provedor.objects.filter(
                         cidadeatendida__cidade__icontains=nome_cidade
                     ).distinct()
                     
-                    for p in provedores:
+                    # DEBUG: Mostra o que o sistema está tentando achar
+                    print(f"Buscando '{nome_cidade}': Encontrei {cidades_encontradas.count()} provedor(es).")
+                    
+                    for p in cidades_encontradas:
                         if p not in resultado:
                             resultado.append(p)
             

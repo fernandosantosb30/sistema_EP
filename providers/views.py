@@ -7,10 +7,11 @@ import unicodedata
 # --- BIBLIOTECAS DE TERCEIROS ---
 import pandas as pd
 from rapidfuzz import process
+import difflib
 
 # --- BIBLIOTECAS DJANGO ---
 from django import forms
-from django.conf import settings
+from django.conf import settingss
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.forms import UserCreationForm, SetPasswordForm
@@ -147,10 +148,14 @@ def consulta_provedores(request):
 @login_required
 def processar_custo_medio(request):
     try:
+        # Busca os dados do banco
         query = "SELECT cidade, uf, servico, valor_mensal, capacidade_mb, vigencia_meses, ip_fixo FROM public.providers_contratocusto"
         df = pd.read_sql(query, connection)
         
-        # 1. PREPARAÇÃO DOS DADOS
+        if df.empty:
+            return JsonResponse({'error': 'Nenhum contrato encontrado no banco.'}, status=404)
+
+        # 1. PREPARAÇÃO E NORMALIZAÇÃO DOS DADOS
         def extrair_interface(texto):
             texto = normalizar_texto(texto) if texto else ""
             if 'FIBRA' in texto: return 'Fibra'
@@ -161,8 +166,11 @@ def processar_custo_medio(request):
         df['cidade_norm'] = df['cidade'].apply(lambda x: normalizar_texto(x) if x else "")
         df['uf'] = df['uf'].str.upper().str.strip()
 
-        # 2. CARREGAMENTO INICIAL DA PÁGINA
-        if not any(request.GET.get(k) for k in ['cidade', 'uf', 'servico', 'capacidade', 'vigencia']):
+        # 2. VERIFICAÇÃO DE PARÂMETROS
+        params_keys = ['cidade', 'uf', 'servico', 'capacidade', 'vigencia', 'interface', 'ip_fixo']
+        has_params = any(request.GET.get(k) for k in params_keys)
+
+        if not has_params:
             context = {
                 'servicos': sorted([s for s in df['servico'].unique() if s]),
                 'vigencias': sorted([v for v in df['vigencia_meses'].unique() if pd.notnull(v)]),
@@ -171,38 +179,33 @@ def processar_custo_medio(request):
             }
             return render(request, 'providers/custo_medio_integrado.html', context)
 
-        # 3. LÓGICA DE FILTROS E HIERARQUIA
-        # Filtros básicos (exceto cidade/uf)
-        mask_base = pd.Series(True, index=df.index)
-        if request.GET.get('servico'): mask_base &= (df['servico'] == request.GET.get('servico'))
-        if request.GET.get('interface'): mask_base &= (df['interface'] == request.GET.get('interface'))
-        if request.GET.get('ip_fixo'): mask_base &= (df['ip_fixo'].astype(str) == request.GET.get('ip_fixo'))
-        if request.GET.get('capacidade'): mask_base &= (df['capacidade_mb'] == int(request.GET.get('capacidade')))
-        if request.GET.get('vigencia'): mask_base &= (df['vigencia_meses'] == int(request.GET.get('vigencia')))
+        # 3. LÓGICA DE FILTROS COM DIFFLIB
+        mask = pd.Series(True, index=df.index)
+        
+        # Filtros exatos
+        if request.GET.get('servico'): mask &= (df['servico'] == request.GET.get('servico'))
+        if request.GET.get('interface'): mask &= (df['interface'] == request.GET.get('interface'))
+        if request.GET.get('ip_fixo'): mask &= (df['ip_fixo'].astype(str) == request.GET.get('ip_fixo'))
+        if request.GET.get('capacidade'): mask &= (df['capacidade_mb'] == int(request.GET.get('capacidade')))
+        if request.GET.get('vigencia'): mask &= (df['vigencia_meses'] == int(request.GET.get('vigencia')))
 
-        df_filtrado = pd.DataFrame()
         nivel = 'Geral'
+        cidade_req = normalizar_texto(request.GET.get('cidade')) if request.GET.get('cidade') else None
+        uf_req = request.GET.get('uf', '').upper().strip()
 
-        cidade_digitada = normalizar_texto(request.GET.get('cidade')) if request.GET.get('cidade') else None
-        uf_digitada = request.GET.get('uf', '').upper().strip()
+        df_filtrado = df[mask]
 
-        # A. Tenta por Cidade + Filtros
-        if cidade_digitada:
-            cidades_disponiveis = df['cidade_norm'].unique().tolist()
-            match = process.extractOne(cidade_digitada, cidades_disponiveis)
-            if match and match[1] >= 80:
-                df_filtrado = df[mask_base & (df['cidade_norm'] == match[0])]
+        # Lógica de correspondência com difflib (nativa do Python)
+        if cidade_req:
+            cidades_list = df['cidade_norm'].unique().tolist()
+            # Busca a melhor correspondência (cutoff 0.7 = 70% de similaridade)
+            matches = difflib.get_close_matches(cidade_req, cidades_list, n=1, cutoff=0.7)
+            if matches:
+                df_filtrado = df_filtrado[df_filtrado['cidade_norm'] == matches[0]]
                 nivel = 'Cidade'
-
-        # B. Se falhou (ou não teve cidade), tenta por UF + Filtros
-        if df_filtrado.empty and uf_digitada:
-            df_filtrado = df[mask_base & (df['uf'] == uf_digitada)]
+        elif uf_req:
+            df_filtrado = df_filtrado[df_filtrado['uf'] == uf_req]
             nivel = 'Estado'
-            
-        # C. Se ainda vazio, retorna o Geral (sem cidade/uf, apenas filtros básicos)
-        if df_filtrado.empty:
-            df_filtrado = df[mask_base]
-            nivel = 'Geral'
 
         # 4. RESULTADO
         return JsonResponse({
@@ -212,58 +215,68 @@ def processar_custo_medio(request):
         })
 
     except Exception as e:
-        print(f"Erro no processamento: {e}")
         return JsonResponse({'error': str(e)}, status=500)
 
 # --- Nova Função de Processamento em Lote (CSV) ---
 @login_required
 def processar_lote_csv(request):
-    if request.method == 'POST' and request.FILES.get('arquivo_cidades'):
-        arquivo = request.FILES['arquivo_cidades']
+    if request.method == 'POST' and request.FILES.get('arquivo_csv'): 
+        arquivo = request.FILES['arquivo_csv']
         try:
-            # 1. Leitura robusta do arquivo
+            # 1. Leitura do arquivo
             df_input = pd.read_csv(arquivo, encoding='utf-8', sep=None, engine='python')
             df_input.columns = [c.lower().strip() for c in df_input.columns]
             
-            # 2. Normalização automática de todas as colunas de texto no input
-            cols_texto = ['cidade', 'uf', 'servico']
-            for col in cols_texto:
-                if col in df_input.columns:
-                    df_input[col] = df_input[col].apply(normalizar_texto)
-            
-            # Converte velocidade para numérico
+            # Normalização do input
+            df_input['cidade_norm'] = df_input['cidade'].apply(normalizar_texto)
+            df_input['uf'] = df_input['uf'].astype(str).str.upper().str.strip()
             df_input['capacidade_mb'] = pd.to_numeric(df_input['velocidade'], errors='coerce').fillna(-1).astype(int)
 
-            # 3. Busca dados do banco usando conexão nativa do Django
+            # 2. Busca dados do banco
             query = "SELECT cidade, uf, servico, valor_mensal, capacidade_mb FROM public.providers_contratocusto"
             df_custos = pd.read_sql(query, connection)
             
-            # 4. Normalização rigorosa dos dados do banco para garantir o MATCH
-            for col in cols_texto:
-                df_custos[col] = df_custos[col].apply(normalizar_texto)
+            # Normalização dos dados do banco para comparação
+            df_custos['cidade_norm'] = df_custos['cidade'].apply(normalizar_texto)
+            df_custos['uf'] = df_custos['uf'].astype(str).str.upper().str.strip()
             df_custos['capacidade_mb'] = df_custos['capacidade_mb'].fillna(-1).astype(int)
-
-            # 5. Merge (União dos dados)
-            df_merge = pd.merge(df_input, df_custos, 
-                                left_on=['cidade', 'uf', 'servico', 'capacidade_mb'], 
-                                right_on=['cidade', 'uf', 'servico', 'capacidade_mb'], 
-                                how='left')
             
-            # 6. Agrupamento para média
-            df_resultado = df_merge.groupby(['cidade', 'uf', 'servico', 'capacidade_mb'])['valor_mensal'].mean().reset_index()
-            df_resultado.rename(columns={'valor_mensal': 'custo_medio'}, inplace=True)
-            df_resultado['custo_medio'] = df_resultado['custo_medio'].fillna(0).round(2)
+            # Lista única de cidades do banco para o matching
+            cidades_banco = df_custos['cidade_norm'].unique().tolist()
 
-            # 7. Gerar download
-            response = HttpResponse(content_type='text/csv')
+            # 3. Lógica de busca aproximada (Fuzzy Matching)
+            def buscar_custo(row):
+                # Filtra o banco pelo Estado e Capacidade primeiro (filtros rígidos)
+                candidatos = df_custos[
+                    (df_custos['uf'] == row['uf']) & 
+                    (df_custos['capacidade_mb'] == row['capacidade_mb'])
+                ]
+                
+                # Procura a cidade mais próxima
+                cidades_candidatas = candidatos['cidade_norm'].unique().tolist()
+                match = difflib.get_close_matches(row['cidade_norm'], cidades_candidatas, n=1, cutoff=0.7)
+                
+                if match:
+                    # Se achou, pega a média dos valores para aquela cidade/uf/velocidade
+                    valor = candidatos[candidatos['cidade_norm'] == match[0]]['valor_mensal'].mean()
+                    return round(valor, 2)
+                return 0.0
+
+            # Aplica a busca para cada linha do CSV
+            df_input['custo_medio'] = df_input.apply(buscar_custo, axis=1)
+
+            # 4. Gerar download
+            response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
             response['Content-Disposition'] = 'attachment; filename="resultado_precificacao.csv"'
-            df_resultado.to_csv(path_or_buf=response, index=False)
+            df_input[['cidade', 'uf', 'velocidade', 'custo_medio']].to_csv(
+                path_or_buf=response, index=False, encoding='utf-8-sig', sep=';'
+            )
             return response
             
         except Exception as e:
-            return HttpResponse(f"Erro ao processar arquivo: {e}")
+            return HttpResponse(f"Erro ao processar arquivo: {str(e)}", status=500)
             
-    return HttpResponse("Erro: Arquivo não enviado ou formato inválido.")
+    return HttpResponse("Erro: Arquivo não enviado ou formato inválido.", status=400)
 
 def get_provedor_form(): return modelform_factory(Provedor, fields="__all__")
 def get_contato_form(): return modelform_factory(Contato, fields="__all__")

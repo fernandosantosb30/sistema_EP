@@ -96,11 +96,27 @@
 </div>
 
 <script>
+// 1. Função auxiliar global (fora dos eventos)
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// 2. Evento de Calcular Custo Médio
 document.getElementById('btn-calcular').addEventListener('click', function() {
-    // 1. Corrigida a vírgula faltante após 'ip_fixo'
     const params = new URLSearchParams({
-        cidade: document.getElementById('cidade').value,
-        uf: document.getElementById('uf').value,
+        cidade: document.getElementById('cidade').value.trim(),
+        uf: document.getElementById('uf').value.trim(),
         servico: document.getElementById('tipo_servico').value,
         capacidade: document.getElementById('velocidade').value,
         vigencia: document.getElementById('prazo').value,
@@ -108,21 +124,72 @@ document.getElementById('btn-calcular').addEventListener('click', function() {
         interface: document.getElementById('interface').value
     });
 
-    // 2. Caminho corrigido e garantido
-    // Adicionamos um '/' no início para garantir que ele busque da raiz do domínio
+    for (const [key, value] of params.entries()) {
+        if (!value) params.delete(key);
+    }
+
+    const btn = document.getElementById('btn-calcular');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = 'Calculando...';
+    btn.disabled = true;
+
     fetch('/custo-medio/?' + params.toString())
     .then(res => {
-        if (!res.ok) throw new Error('Erro no servidor: ' + res.status);
+        if (!res.ok) throw new Error('Erro no servidor');
         return res.json();
     })
     .then(data => {
-        // Atualiza a interface
-        document.getElementById('resultado-media').innerText = 'R$ ' + (data.custo_medio || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2});
+        const custoFormatado = (data.custo_medio || 0).toLocaleString('pt-BR', {
+            style: 'currency', 
+            currency: 'BRL'
+        });
+        document.getElementById('resultado-media').innerText = custoFormatado;
         document.getElementById('resultado-amostragem').innerText = (data.quantidade_contratos || 0) + ' contratos';
     })
     .catch(err => {
         console.error(err);
-        alert('Erro ao calcular custo. Verifique se o servidor está respondendo.');
+        alert('Erro ao calcular.');
+    })
+    .finally(() => {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    });
+});
+
+// 3. Evento de Processar Lote
+document.getElementById('btn-processar-lote').addEventListener('click', function() {
+    const fileInput = document.getElementById('arquivo-csv');
+    if (fileInput.files.length === 0) {
+        alert("Por favor, selecione um arquivo CSV.");
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('arquivo_csv', fileInput.files[0]);
+
+    fetch('/custo-medio/processar-lote/', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        }
+    })
+    .then(res => {
+        if (!res.ok) return res.text().then(text => { throw new Error(text); });
+        return res.blob();
+    })
+    .then(blob => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = "resultado_precificacao.csv";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+    })
+    .catch(err => {
+        console.error("Erro:", err);
+        alert("Erro no processamento: " + err.message);
     });
 });
 </script>

@@ -7,7 +7,7 @@ import io
 # --- BIBLIOTECAS DE TERCEIROS ---
 import pandas as pd
 from sqlalchemy import create_engine
-from thefuzz import process
+from rapidfuzz import process
 
 # --- BIBLIOTECAS DJANGO ---
 from django import forms

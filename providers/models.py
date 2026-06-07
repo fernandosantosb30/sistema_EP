@@ -61,9 +61,9 @@ class Contato(models.Model):
 class HistoricoCusto(models.Model):
     provedor = models.ForeignKey(
         Provedor, 
-        on_delete=models.SET_NULL, # <--- Mude aqui
-        null=True,                 # <--- Necessário para SET_NULL
-        blank=True,                # <--- Necessário para SET_NULL
+        on_delete=models.SET_NULL, 
+        null=True,                 
+        blank=True,                
         related_name='historico_custos'
     )
     valor_custo = models.DecimalField(max_digits=10, decimal_places=2)
@@ -74,7 +74,9 @@ class HistoricoCusto(models.Model):
         app_label = 'providers'
     
     def __str__(self):
-        return f"{self.provedor.nome} - R$ {self.valor_custo}"
+        # Ajuste aqui para evitar erro caso o provedor seja deletado
+        nome_provedor = self.provedor.nome if self.provedor else "Sem provedor"
+        return f"{nome_provedor} - R$ {self.valor_custo}"
     
 class ContratoCusto(models.Model):
     # Dados técnicos e contratuais

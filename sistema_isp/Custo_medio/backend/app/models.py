@@ -1,18 +1,16 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime
-from .database import Base
-import datetime
+from django.db import models
 
-class Contrato(Base): # <--- O erro diz que este nome 'Contrato' não foi achado
-    __tablename__ = "contratos"
+class ContratoCusto(models.Model):
+    # Campos que existem na sua tabela providers_contratocusto
+    cidade = models.CharField(max_length=100)
+    uf = models.CharField(max_length=2)
+    servico = models.CharField(max_length=100)
+    valor_mensal = models.DecimalField(max_digits=10, decimal_places=2)
+    capacidade_mb = models.IntegerField()
+    vigencia_meses = models.IntegerField()
+    ip_fixo = models.CharField(max_length=50, blank=True, null=True)
+    interface = models.CharField(max_length=50, blank=True, null=True) # Campo calculado no DF
 
-    id = Column(Integer, primary_key=True, index=True)
-    provedor_nome = Column(String(255))
-    tipo_servico = Column(String(100))
-    velocidade = Column(Integer)  # Mbps
-    bloco_ip = Column(String(100))
-    cidade = Column(String(100))
-    uf = Column(String(2))
-    valor_mensal = Column(Float)
-    vigencia = Column(Integer)    # Meses
-    tipo_rede = Column(String(50)) # Própria ou Last-mile
-    data_importacao = Column(DateTime, default=datetime.datetime.utcnow)
+    class Meta:
+        managed = False  # Importante: Como o Pandas já gerencia os dados, o Django não deve tentar criar a tabela
+        db_table = 'providers_contratocusto'

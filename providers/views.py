@@ -11,7 +11,7 @@ import difflib
 
 # --- BIBLIOTECAS DJANGO ---
 from django import forms
-from django.conf import settingss
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.forms import UserCreationForm, SetPasswordForm

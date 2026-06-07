@@ -3,14 +3,14 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from urllib.parse import quote_plus
 
-# Usando quote_plus para tratar a senha com caracteres especiais
-user = "postgres"
-password = quote_plus("GGwaopq@1")
-host = "localhost"
-port = "5432"
-db_name = "sistema_isp_db"
+# Configuração do PostgreSQL
+USER = "postgres"
+PASSWORD = quote_plus("GGwaopq@1")
+HOST = "localhost"
+PORT = "5432"
+DB_NAME = "sistema_isp_db"
 
-SQLALCHEMY_DATABASE_URL = f"postgresql://{user}:{password}@{host}:{port}/{db_name}"
+SQLALCHEMY_DATABASE_URL = f"postgresql://{USER}:{PASSWORD}@{HOST}:{PORT}/{DB_NAME}"
 
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

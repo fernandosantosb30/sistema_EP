@@ -1,5 +1,6 @@
 from django.db import models
 from django import forms
+from .utils import normalizar_texto
 
 class Provedor(models.Model):
     # Identificação
@@ -31,19 +32,26 @@ class Provedor(models.Model):
         verbose_name_plural = 'Provedores'
 
     def __str__(self):
-        return self.nome
-    
+        return self.nome  
+
 class CidadeAtendida(models.Model):
-    provedor = models.ForeignKey(Provedor, on_delete=models.CASCADE, related_name='cidades')
+    provedor = models.ForeignKey('Provedor', on_delete=models.CASCADE, related_name='cidades')
     nome = models.CharField(max_length=100, db_index=True)
     uf = models.CharField(max_length=2, db_index=True)
 
     class Meta:
-        app_label = 'providers'  # <--- ADICIONE ISSO
+        app_label = 'providers'
         unique_together = ('provedor', 'nome', 'uf')
         indexes = [
             models.Index(fields=['nome', 'uf']),
         ]
+
+    def save(self, *args, **kwargs):
+        # Garante que o nome esteja sempre no padrão (sem acentos, maiúsculo)
+        self.nome = normalizar_texto(self.nome)
+        # Garante que a UF seja sempre maiúscula e sem espaços
+        self.uf = self.uf.upper().strip()
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.nome}/{self.uf}"
@@ -58,7 +66,7 @@ class Contato(models.Model):
     class Meta:
         app_label = 'providers'
        
-class ContratoCusto(models.Model):
+class providers_contratocusto(models.Model):
     # Dados técnicos e contratuais
     cidade = models.CharField(max_length=100)
     uf = models.CharField(max_length=2)

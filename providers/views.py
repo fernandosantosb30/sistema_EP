@@ -1,12 +1,11 @@
 # --- BIBLIOTECAS PADRÃO ---
 import csv
+import io
 import os
 import unicodedata
-import io
 
 # --- BIBLIOTECAS DE TERCEIROS ---
 import pandas as pd
-from sqlalchemy import create_engine
 from rapidfuzz import process
 
 # --- BIBLIOTECAS DJANGO ---
@@ -17,18 +16,20 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.forms import UserCreationForm, SetPasswordForm
 from django.contrib.auth.models import User
 from django.core.paginator import Paginator
+from django.db import connection 
 from django.db.models import Q
-from django.http import HttpResponse
-from django.http import JsonResponse
-from django.shortcuts import render, get_object_or_404, redirect
-from django.forms import modelform_factory
 from django.db.models.functions import Lower, Trim
+from django.forms import modelform_factory
+from django.http import HttpResponse, JsonResponse
+from django.shortcuts import render, get_object_or_404, redirect
+from django.views.generic import ListView
+
+# --- IMPORTAÇÃO DA FUNÇÃO NORMALIZAR_TEXTO ---
+from .utils import normalizar_texto  # <--- CORRIGIDO: Agora vem de utils.py
 
 # --- MODELOS E FORMULÁRIOS LOCAIS ---
-from .models import Provedor, Contato, CidadeAtendida
 from .forms import ProvedorForm, ContatoForm, CidadeForm
-from django.views.generic import ListView
-from .models import Provedor
+from .models import Provedor, Contato, CidadeAtendida
 
 #Paginator 
 class ListaProvedoresView(ListView):
@@ -38,16 +39,9 @@ class ListaProvedoresView(ListView):
     paginate_by = 10
 
 # --- UTILS / CONFIGURAÇÕES ---
-def get_db_engine():
-    return create_engine(os.environ.get('DATABASE_URL'))
 
 def get_form(model):
     return modelform_factory(model, fields="__all__")
-
-def normalizar_texto(texto):
-    if not texto: return ""
-    nfkd_form = unicodedata.normalize('NFKD', texto)
-    return "".join([c for c in nfkd_form if not unicodedata.combining(c)]).lower().replace('-', ' ').strip()
 
 # --- GESTÃO DE ACESSO (ADMIN) ---
 def e_admin(user):
@@ -119,21 +113,24 @@ def lista_provedores(request):
 
 @login_required
 def consulta_provedores(request):
-    # Otimização: prefetch_related carrega os contatos de uma vez
-    provedores = Provedor.objects.prefetch_related('contatos').all().distinct()
+    # Otimização: carregamos também 'cidades' para evitar consultas extras ao banco
+    provedores = Provedor.objects.prefetch_related('contatos', 'cidades').all().distinct()
     
+    # Captura e normalização das entradas
     fornecedor = request.GET.get('fornecedor')
-    uf = request.GET.get('uf')
-    cidade1 = request.GET.get('cidade1')
-    cidade2 = request.GET.get('cidade2')
-    cidade3 = request.GET.get('cidade3')
+    uf = request.GET.get('uf', '').strip().upper()
+    cidade1 = normalizar_texto(request.GET.get('cidade1'))
+    cidade2 = normalizar_texto(request.GET.get('cidade2'))
+    cidade3 = normalizar_texto(request.GET.get('cidade3'))
     
+    # Filtros
     if fornecedor:
         provedores = provedores.filter(Q(nome__icontains=fornecedor) | Q(razao_social__icontains=fornecedor))
     
     if uf:
         provedores = provedores.filter(cidades__uf__iexact=uf)
         
+    # As consultas de cidade agora usam o termo normalizado
     if cidade1:
         provedores = provedores.filter(cidades__nome__icontains=cidade1)
     if cidade2:
@@ -147,99 +144,76 @@ def consulta_provedores(request):
     
     return render(request, 'providers/consulta.html', context)
 
-# --- GESTÃO DE CUSTO MÉDIO (INTEGRADA) ---
-import pandas as pd
-import unicodedata
-from thefuzz import process
-from django.http import JsonResponse
-from django.contrib.auth.decorators import login_required
-from django.shortcuts import render
-
-# Função auxiliar para normalizar texto (remover acentos e maiúsculas)
-def normalizar_texto(texto):
-    texto = str(texto).upper()
-    return unicodedata.normalize('NFKD', texto).encode('ASCII', 'ignore').decode('utf-8')
-
 @login_required
 def processar_custo_medio(request):
-    engine = get_db_engine()
-    query = "SELECT cidade, uf, servico, valor_mensal, capacidade_mb, vigencia_meses, ip_fixo FROM public.providers_contratocusto"
-    df = pd.read_sql(query, engine)
-    
-    # 1. CRIAÇÃO DO FILTRO VIRTUAL E NORMALIZAÇÃO
-    def extrair_interface(texto):
-        texto = normalizar_texto(texto) if texto else ""
-        if 'FIBRA' in texto: return 'Fibra'
-        if 'WIRELESS' in texto or 'RADIO' in texto: return 'Rádio'
-        return 'Misto'
-
-    df['interface'] = df['servico'].apply(extrair_interface)
-    df['cidade_norm'] = df['cidade'].apply(lambda x: normalizar_texto(x) if x else "")
-
-    # 2. Carregamento inicial (Página)
-    if not any(request.GET.get(k) for k in ['cidade', 'uf', 'servico', 'capacidade', 'vigencia']):
-        context = {
-            'servicos': sorted([s for s in df['servico'].unique() if s]),
-            'vigencias': sorted([v for v in df['vigencia_meses'].unique() if pd.notnull(v)]),
-            'ips_fixos': sorted([str(ip) for ip in df['ip_fixo'].unique() if pd.notnull(ip)]),
-            'interfaces': sorted(df['interface'].unique()) 
-        }
-        return render(request, 'providers/custo_medio_integrado.html', context)
-
-    # 3. Requisição de filtro (JSON)
     try:
-        mask = pd.Series(True, index=df.index)
-        if request.GET.get('servico'): mask &= (df['servico'] == request.GET.get('servico'))
-        if request.GET.get('interface'): mask &= (df['interface'] == request.GET.get('interface'))
-        if request.GET.get('ip_fixo'): mask &= (df['ip_fixo'].astype(str) == request.GET.get('ip_fixo'))
-        if request.GET.get('capacidade'): mask &= (df['capacidade_mb'] == int(request.GET.get('capacidade')))
-        if request.GET.get('vigencia'): mask &= (df['vigencia_meses'] == int(request.GET.get('vigencia')))
+        query = "SELECT cidade, uf, servico, valor_mensal, capacidade_mb, vigencia_meses, ip_fixo FROM public.providers_contratocusto"
+        df = pd.read_sql(query, connection)
+        
+        # 1. PREPARAÇÃO DOS DADOS
+        def extrair_interface(texto):
+            texto = normalizar_texto(texto) if texto else ""
+            if 'FIBRA' in texto: return 'Fibra'
+            if 'WIRELESS' in texto or 'RADIO' in texto: return 'Rádio'
+            return 'Misto'
 
-        # Filtro de Cidade (Fuzzy)
-        mask_cidade = mask.copy()
-        if request.GET.get('cidade'):
-            cidade_digitada = normalizar_texto(request.GET.get('cidade'))
+        df['interface'] = df['servico'].apply(extrair_interface)
+        df['cidade_norm'] = df['cidade'].apply(lambda x: normalizar_texto(x) if x else "")
+        df['uf'] = df['uf'].str.upper().str.strip()
+
+        # 2. CARREGAMENTO INICIAL DA PÁGINA
+        if not any(request.GET.get(k) for k in ['cidade', 'uf', 'servico', 'capacidade', 'vigencia']):
+            context = {
+                'servicos': sorted([s for s in df['servico'].unique() if s]),
+                'vigencias': sorted([v for v in df['vigencia_meses'].unique() if pd.notnull(v)]),
+                'ips_fixos': sorted([str(ip) for ip in df['ip_fixo'].unique() if pd.notnull(ip)]),
+                'interfaces': sorted(df['interface'].unique()) 
+            }
+            return render(request, 'providers/custo_medio_integrado.html', context)
+
+        # 3. LÓGICA DE FILTROS E HIERARQUIA
+        # Filtros básicos (exceto cidade/uf)
+        mask_base = pd.Series(True, index=df.index)
+        if request.GET.get('servico'): mask_base &= (df['servico'] == request.GET.get('servico'))
+        if request.GET.get('interface'): mask_base &= (df['interface'] == request.GET.get('interface'))
+        if request.GET.get('ip_fixo'): mask_base &= (df['ip_fixo'].astype(str) == request.GET.get('ip_fixo'))
+        if request.GET.get('capacidade'): mask_base &= (df['capacidade_mb'] == int(request.GET.get('capacidade')))
+        if request.GET.get('vigencia'): mask_base &= (df['vigencia_meses'] == int(request.GET.get('vigencia')))
+
+        df_filtrado = pd.DataFrame()
+        nivel = 'Geral'
+
+        cidade_digitada = normalizar_texto(request.GET.get('cidade')) if request.GET.get('cidade') else None
+        uf_digitada = request.GET.get('uf', '').upper().strip()
+
+        # A. Tenta por Cidade + Filtros
+        if cidade_digitada:
             cidades_disponiveis = df['cidade_norm'].unique().tolist()
             match = process.extractOne(cidade_digitada, cidades_disponiveis)
             if match and match[1] >= 80:
-                mask_cidade &= (df['cidade_norm'] == match[0])
-            else:
-                mask_cidade &= False # Força não encontrar a cidade para disparar o fallback
-        
-        # Filtro de UF
-        if request.GET.get('uf'):
-            mask_cidade &= (df['uf'].str.upper() == request.GET.get('uf').upper())
+                df_filtrado = df[mask_base & (df['cidade_norm'] == match[0])]
+                nivel = 'Cidade'
 
-        df_filtrado = df[mask_cidade]
-
-        # SE ESTIVER VAZIO, tenta recuar para apenas UF (Hierarquia)
-        if df_filtrado.empty and request.GET.get('uf'):
-            mask_uf = mask.copy()
-            mask_uf &= (df['uf'].str.upper() == request.GET.get('uf').upper())
-            df_filtrado = df[mask_uf]
-
-        # PROTEÇÃO CONTRA ERRO 500: Verifica se o DF está vazio antes de calcular
-        if df_filtrado.empty:
-            return JsonResponse({'custo_medio': 0.00, 'quantidade_contratos': 0, 'nivel': 'Geral'})
-
-        # Lógica refinada para definir o nível de abrangência do resultado
-        if request.GET.get('cidade') and not df[mask_cidade].empty:
-            nivel = 'Cidade'
-        elif request.GET.get('uf') and not df_filtrado.empty:
+        # B. Se falhou (ou não teve cidade), tenta por UF + Filtros
+        if df_filtrado.empty and uf_digitada:
+            df_filtrado = df[mask_base & (df['uf'] == uf_digitada)]
             nivel = 'Estado'
-        else:
+            
+        # C. Se ainda vazio, retorna o Geral (sem cidade/uf, apenas filtros básicos)
+        if df_filtrado.empty:
+            df_filtrado = df[mask_base]
             nivel = 'Geral'
 
-        resultado = {
-            'custo_medio': round(float(df_filtrado['valor_mensal'].mean()), 2),
+        # 4. RESULTADO
+        return JsonResponse({
+            'custo_medio': round(float(df_filtrado['valor_mensal'].mean()), 2) if not df_filtrado.empty else 0.00,
             'quantidade_contratos': int(len(df_filtrado)),
             'nivel': nivel
-        }
-        return JsonResponse(resultado)
+        })
 
     except Exception as e:
         print(f"Erro no processamento: {e}")
-        return JsonResponse({'error': 'Erro ao processar filtros'}, status=500)
+        return JsonResponse({'error': str(e)}, status=500)
 
 # --- Nova Função de Processamento em Lote (CSV) ---
 @login_required
@@ -247,48 +221,47 @@ def processar_lote_csv(request):
     if request.method == 'POST' and request.FILES.get('arquivo_cidades'):
         arquivo = request.FILES['arquivo_cidades']
         try:
-            # Leitura e normalização básica
-            conteudo = arquivo.read().decode('utf-8', errors='ignore').replace('\r\n', '\n')
-            df_input = pd.read_csv(io.StringIO(conteudo))
+            # 1. Leitura robusta do arquivo
+            df_input = pd.read_csv(arquivo, encoding='utf-8', sep=None, engine='python')
             df_input.columns = [c.lower().strip() for c in df_input.columns]
             
-            # Validação
-            colunas_esperadas = ['cidade', 'uf', 'servico', 'velocidade']
-            if not all(col in df_input.columns for col in colunas_esperadas):
-                return HttpResponse(f"Erro: O arquivo deve conter as colunas: {', '.join(colunas_esperadas)}")
-
-            # Limpeza dos dados de entrada
-            df_input['cidade'] = df_input['cidade'].astype(str).str.lower().str.strip()
-            df_input['uf'] = df_input['uf'].astype(str).str.lower().str.strip()
-            df_input['servico'] = df_input['servico'].astype(str).str.lower().str.strip()
-            # Converte velocidade para int de forma segura
+            # 2. Normalização automática de todas as colunas de texto no input
+            cols_texto = ['cidade', 'uf', 'servico']
+            for col in cols_texto:
+                if col in df_input.columns:
+                    df_input[col] = df_input[col].apply(normalizar_texto)
+            
+            # Converte velocidade para numérico
             df_input['capacidade_mb'] = pd.to_numeric(df_input['velocidade'], errors='coerce').fillna(-1).astype(int)
 
-            # Busca dados do banco
-            engine = get_db_engine()
-            df_custos = pd.read_sql("SELECT cidade, uf, servico, valor_mensal, capacidade_mb FROM public.providers_contratocusto", engine)
+            # 3. Busca dados do banco usando conexão nativa do Django
+            query = "SELECT cidade, uf, servico, valor_mensal, capacidade_mb FROM public.providers_contratocusto"
+            df_custos = pd.read_sql(query, connection)
             
-            # Normaliza dados do banco
-            df_custos['cidade'] = df_custos['cidade'].str.lower().str.strip()
-            df_custos['uf'] = df_custos['uf'].str.lower().str.strip()
-            df_custos['servico'] = df_custos['servico'].str.lower().str.strip()
+            # 4. Normalização rigorosa dos dados do banco para garantir o MATCH
+            for col in cols_texto:
+                df_custos[col] = df_custos[col].apply(normalizar_texto)
+            df_custos['capacidade_mb'] = df_custos['capacidade_mb'].fillna(-1).astype(int)
 
-            # OTIMIZAÇÃO: Usando merge em vez de loop for (muito mais rápido)
-            df_merge = pd.merge(df_input, df_custos, on=['cidade', 'uf', 'servico', 'capacidade_mb'], how='left')
+            # 5. Merge (União dos dados)
+            df_merge = pd.merge(df_input, df_custos, 
+                                left_on=['cidade', 'uf', 'servico', 'capacidade_mb'], 
+                                right_on=['cidade', 'uf', 'servico', 'capacidade_mb'], 
+                                how='left')
             
-            # Agrupa para tirar a média por linha original do CSV
-            df_resultado = df_merge.groupby(['cidade', 'uf', 'servico', 'velocidade'])['valor_mensal'].mean().reset_index()
+            # 6. Agrupamento para média
+            df_resultado = df_merge.groupby(['cidade', 'uf', 'servico', 'capacidade_mb'])['valor_mensal'].mean().reset_index()
             df_resultado.rename(columns={'valor_mensal': 'custo_medio'}, inplace=True)
             df_resultado['custo_medio'] = df_resultado['custo_medio'].fillna(0).round(2)
 
-            # Gerar download
+            # 7. Gerar download
             response = HttpResponse(content_type='text/csv')
             response['Content-Disposition'] = 'attachment; filename="resultado_precificacao.csv"'
             df_resultado.to_csv(path_or_buf=response, index=False)
             return response
             
         except Exception as e:
-            return HttpResponse(f"Erro ao processar: {e}")
+            return HttpResponse(f"Erro ao processar arquivo: {e}")
             
     return HttpResponse("Erro: Arquivo não enviado ou formato inválido.")
 
@@ -342,8 +315,15 @@ def editar_provedor(request, pk=None):
 @user_passes_test(e_admin)
 @login_required
 def excluir_contato(request, contato_id):
-    get_object_or_404(Contato, id=contato_id).delete()
-    return redirect('lista_provedores')
+    # Primeiro, recuperamos o contato para saber quem é o dono (o provedor)
+    contato = get_object_or_404(Contato, id=contato_id)
+    provedor_id = contato.provedor.id
+    
+    # Excluímos o contato
+    contato.delete()
+    
+    # Redirecionamos para a tela de edição do provedor específico
+    return redirect('editar_provedor', pk=provedor_id)
 
 # --- GESTÃO DE CIDADES ---
 
@@ -366,14 +346,21 @@ def adicionar_cidade(request, provedor_id):
 @user_passes_test(e_admin)
 @login_required
 def excluir_cidade(request, cidade_id):
-    get_object_or_404(CidadeAtendida, id=cidade_id).delete()
-    return redirect('lista_provedores')
+    cidade = get_object_or_404(CidadeAtendida, id=cidade_id)
+    provedor_id = cidade.provedor.id # Captura o ID do provedor dono da cidade
+    cidade.delete()
+    
+    # Redireciona de volta para o cadastro do provedor
+    return redirect('editar_provedor', pk=provedor_id)
 
 @user_passes_test(e_admin)
 @login_required
 def excluir_todas_cidades(request, provedor_id):
+    # Deleta apenas as cidades relacionadas ao provedor informado
     CidadeAtendida.objects.filter(provedor_id=provedor_id).delete()
-    return redirect('lista_provedores')
+    
+    # Redireciona de volta para o cadastro do provedor
+    return redirect('editar_provedor', pk=provedor_id)
 
 # --- IMPORTAÇÃO E MAPEAMENTO ---
 @login_required
@@ -381,9 +368,9 @@ def importar_mapeamento(request):
     if request.method == 'POST' and request.FILES.get('arquivo_cidades'):
         try:
             arquivo_binario = request.FILES['arquivo_cidades']
-            arquivo_texto = io.TextIOWrapper(arquivo_binario.file, encoding='latin-1')
-            
-            df = pd.read_csv(arquivo_texto, sep=None, engine='python', header=0, on_bad_lines='skip')
+            # O TextIOWrapper é útil, mas o pd.read_csv com sep=None 
+            # já lida muito bem com arquivos CSV binários/texto.
+            df = pd.read_csv(arquivo_binario, sep=None, engine='python', header=0, on_bad_lines='skip')
             df.columns = [str(c).lower().strip() for c in df.columns]
             
             # --- PREPARAÇÃO DO CSV ---
@@ -396,21 +383,23 @@ def importar_mapeamento(request):
             
             if 'cidade' in df.columns:
                 for _, row in df.iterrows():
-                    nome_cidade_csv = str(row['cidade']).strip().lower()
-                    if not nome_cidade_csv: continue
+                    # USANDO A FUNÇÃO PADRONIZADA AQUI:
+                    nome_cidade_norm = normalizar_texto(row['cidade'])
+                    if not nome_cidade_norm: continue
                     
-                    # Filtra apenas provedores que atendem a ESPECÍFICA cidade da linha
+                    # Filtra provedores que atendem a esta cidade (normalizada)
+                    # Nota: Certifique-se que no seu banco o nome da cidade 
+                    # também esteja armazenado seguindo o padrão normalizar_texto()
                     provedores = Provedor.objects.filter(
-                        cidades__nome__icontains=nome_cidade_csv
+                        cidades__nome__icontains=nome_cidade_norm
                     ).distinct()
                     
                     for p in provedores:
-                        # Busca o objeto da cidade no banco para pegar o UF
-                        cidade_obj = p.cidades.filter(nome__icontains=nome_cidade_csv).first()
-                        
+                        cidade_obj = p.cidades.filter(nome__icontains=nome_cidade_norm).first()
                         contato = p.contatos.first()
+                        
                         writer.writerow([
-                            nome_cidade_csv.upper(),
+                            nome_cidade_norm, # Já está em MAIÚSCULO e limpo
                             cidade_obj.uf if cidade_obj else "N/A",
                             p.nome,
                             f"{contato.nome} ({contato.telefone})" if contato else "N/A",
@@ -420,22 +409,15 @@ def importar_mapeamento(request):
             
             if not encontrou_algum:
                 messages.warning(request, "Nenhum mapeamento encontrado para as cidades informadas.")
-                return render(request, 'providers/consulta.html')
+                return redirect('consulta_provedores')
 
-            return response # Retorna o arquivo para download automático
+            return response
             
         except Exception as e:
             messages.error(request, f"Erro ao processar: {str(e)}")
-            return render(request, 'providers/consulta.html')
+            return redirect('consulta_provedores')
             
     return render(request, 'providers/consulta.html')
-
-def normalizar_texto(texto):
-    """Remove acentos, converte para maiúsculo e remove espaços extras."""
-    if not texto or pd.isna(texto): return ""
-    nfkd_form = unicodedata.normalize('NFKD', str(texto))
-    texto_limpo = "".join([c for c in nfkd_form if not unicodedata.combining(c)])
-    return texto_limpo.upper().strip()
 
 def exportar_mapeamento_csv(request, resultado):
     # 'resultado' é a lista de provedores que você já encontrou
@@ -466,7 +448,7 @@ def importar_cidades_csv(request, provedor_id):
         try:
             csv_file = request.FILES['arquivo_csv']
             
-            # Leitura robusta: aceita latin-1, qualquer separador e ignora linhas ruins
+            # Leitura robusta
             df = pd.read_csv(
                 csv_file, 
                 encoding='latin-1', 
@@ -479,15 +461,18 @@ def importar_cidades_csv(request, provedor_id):
             existentes = 0
             
             for _, row in df.iterrows():
-                # Normaliza os dados usando a função de limpeza acima
+                # 1. Normaliza o nome da cidade
                 nome_cidade = normalizar_texto(row.iloc[0])
-                uf_cidade = normalizar_texto(row.iloc[1]) if len(row) > 1 else "XX"
+                
+                # 2. Normaliza a UF: pega apenas os 2 primeiros caracteres e garante que seja maiúsculo
+                uf_raw = str(row.iloc[1]) if len(row) > 1 else "XX"
+                uf_cidade = uf_raw.strip().upper()[:2]
                 
                 if nome_cidade:
                     # Busca ou cria normalizando a busca também
                     obj, criado = CidadeAtendida.objects.get_or_create(
                         provedor=provedor, 
-                        nome=nome_cidade, # Certifique-se que o campo no model é 'nome'
+                        nome=nome_cidade,
                         uf=uf_cidade
                     )
                     

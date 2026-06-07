@@ -7,6 +7,7 @@ import io
 # --- BIBLIOTECAS DE TERCEIROS ---
 import pandas as pd
 from sqlalchemy import create_engine
+from thefuzz import process
 
 # --- BIBLIOTECAS DJANGO ---
 from django import forms
@@ -147,30 +148,37 @@ def consulta_provedores(request):
     return render(request, 'providers/consulta.html', context)
 
 # --- GESTÃO DE CUSTO MÉDIO (INTEGRADA) ---
+import pandas as pd
+import unicodedata
+from thefuzz import process
+from django.http import JsonResponse
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import render
+
+# Função auxiliar para normalizar texto (remover acentos e maiúsculas)
+def normalizar_texto(texto):
+    texto = str(texto).upper()
+    return unicodedata.normalize('NFKD', texto).encode('ASCII', 'ignore').decode('utf-8')
+
 @login_required
 def processar_custo_medio(request):
     engine = get_db_engine()
-    # Query original sem a coluna 'interface' que não existe no banco
     query = "SELECT cidade, uf, servico, valor_mensal, capacidade_mb, vigencia_meses, ip_fixo FROM public.providers_contratocusto"
     df = pd.read_sql(query, engine)
     
     # CRIAÇÃO DO FILTRO VIRTUAL
     def extrair_interface(texto):
-        # Tudo aqui dentro DEVE estar com o mesmo recuo (4 espaços)
-        texto = str(texto).upper()
-        # Removendo acentos
-        texto = unicodedata.normalize('NFKD', texto).encode('ASCII', 'ignore').decode('utf-8')
-        
-        if 'FIBRA' in texto: 
-            return 'Fibra'
-        if 'WIRELESS' in texto or 'RADIO' in texto: 
-            return 'Rádio'
+        texto = normalizar_texto(texto)
+        if 'FIBRA' in texto: return 'Fibra'
+        if 'WIRELESS' in texto or 'RADIO' in texto: return 'Rádio'
         return 'Misto'
 
-    # Aplica a função para criar a coluna 'interface' em memória
     df['interface'] = df['servico'].apply(extrair_interface)
+    
+    # Normaliza a coluna de cidades no dataframe para facilitar a busca
+    df['cidade_norm'] = df['cidade'].apply(normalizar_texto)
 
-    # 1. Carregamento inicial (sem filtros)
+    # 1. Carregamento inicial
     if not request.GET.get('cidade') and not request.GET.get('uf') and not request.GET.get('servico'):
         context = {
             'servicos': sorted([s for s in df['servico'].unique() if s]),
@@ -180,49 +188,46 @@ def processar_custo_medio(request):
         }
         return render(request, 'providers/custo_medio_integrado.html', context)
 
-    # 2. Requisição de filtro (via JavaScript)
+    # 2. Requisição de filtro
     try:
-        # Primeiro, filtramos pelos critérios fixos (serviço, interface, etc.)
         mask_base = pd.Series(True, index=df.index)
-        if request.GET.get('servico'): 
-            mask_base &= (df['servico'] == request.GET.get('servico'))
-        if request.GET.get('interface'):
-            mask_base &= (df['interface'] == request.GET.get('interface'))
-        if request.GET.get('ip_fixo'):
-            mask_base &= (df['ip_fixo'].astype(str) == request.GET.get('ip_fixo'))
-        if request.GET.get('capacidade'): 
-            mask_base &= (df['capacidade_mb'] == int(request.GET.get('capacidade')))
-        if request.GET.get('vigencia'): 
-            mask_base &= (df['vigencia_meses'] == int(request.GET.get('vigencia')))
+        if request.GET.get('servico'): mask_base &= (df['servico'] == request.GET.get('servico'))
+        if request.GET.get('interface'): mask_base &= (df['interface'] == request.GET.get('interface'))
+        if request.GET.get('ip_fixo'): mask_base &= (df['ip_fixo'].astype(str) == request.GET.get('ip_fixo'))
+        if request.GET.get('capacidade'): mask_base &= (df['capacidade_mb'] == int(request.GET.get('capacidade')))
+        if request.GET.get('vigencia'): mask_base &= (df['vigencia_meses'] == int(request.GET.get('vigencia')))
 
-        # Tenta filtrar por Cidade e UF
+        # Tenta filtrar por Cidade e UF usando Fuzzy Matching
         mask_cidade = mask_base.copy()
         if request.GET.get('uf'): 
             mask_cidade &= (df['uf'].str.upper() == request.GET.get('uf').upper())
-        if request.GET.get('cidade'): 
-            mask_cidade &= (df['cidade'].str.contains(request.GET.get('cidade'), case=False, na=False))
-        
+            
+        if request.GET.get('cidade'):
+            cidade_digitada = normalizar_texto(request.GET.get('cidade'))
+            cidades_disponiveis = df['cidade_norm'].unique().tolist()
+            # Busca a cidade mais parecida
+            melhor_match, score = process.extractOne(cidade_digitada, cidades_disponiveis)
+            
+            # Se a semelhança for maior que 80%, filtra por ela
+            if score >= 80:
+                mask_cidade &= (df['cidade_norm'] == melhor_match)
+            else:
+                mask_cidade &= (df['cidade_norm'] == "---") # Força resultado vazio
+
         df_filtrado = df[mask_cidade]
 
-        # HIERARQUIA: Se não encontrar na cidade, tenta apenas pelo UF
+        # Hierarquia: Se não encontrar nada na cidade, tenta só pelo UF
         if len(df_filtrado) == 0 and request.GET.get('uf'):
             mask_uf = mask_base.copy()
             mask_uf &= (df['uf'].str.upper() == request.GET.get('uf').upper())
             df_filtrado = df[mask_uf]
             
-        # Opcional: Se ainda assim não encontrar nada, você poderia remover 
-        # o filtro de UF para pegar a média nacional/geral:
-        # if len(df_filtrado) == 0: df_filtrado = df[mask_base]
-
         resultado = {
             'custo_medio': round(float(df_filtrado['valor_mensal'].mean()), 2) if not df_filtrado.empty else 0.00,
             'quantidade_contratos': int(len(df_filtrado)),
             'nivel': 'Cidade' if len(df[mask_cidade]) > 0 else ('Estado' if len(df_filtrado) > 0 else 'Geral')
         }
         return JsonResponse(resultado)
-
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
 
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)

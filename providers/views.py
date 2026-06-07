@@ -166,20 +166,19 @@ def processar_custo_medio(request):
     query = "SELECT cidade, uf, servico, valor_mensal, capacidade_mb, vigencia_meses, ip_fixo FROM public.providers_contratocusto"
     df = pd.read_sql(query, engine)
     
-    # CRIAÇÃO DO FILTRO VIRTUAL
+    # 1. CRIAÇÃO DO FILTRO VIRTUAL E NORMALIZAÇÃO
     def extrair_interface(texto):
-        texto = normalizar_texto(texto)
+        # Garante tratamento de nulos/vazios
+        texto = normalizar_texto(texto) if texto else ""
         if 'FIBRA' in texto: return 'Fibra'
         if 'WIRELESS' in texto or 'RADIO' in texto: return 'Rádio'
         return 'Misto'
 
     df['interface'] = df['servico'].apply(extrair_interface)
-    
-    # Normaliza a coluna de cidades no dataframe para facilitar a busca
-    df['cidade_norm'] = df['cidade'].apply(normalizar_texto)
+    df['cidade_norm'] = df['cidade'].apply(lambda x: normalizar_texto(x) if x else "")
 
-    # 1. Carregamento inicial
-    if not request.GET.get('cidade') and not request.GET.get('uf') and not request.GET.get('servico'):
+    # 2. Carregamento inicial (Página)
+    if not any(request.GET.get(k) for k in ['cidade', 'uf', 'servico', 'capacidade', 'vigencia']):
         context = {
             'servicos': sorted([s for s in df['servico'].unique() if s]),
             'vigencias': sorted([v for v in df['vigencia_meses'].unique() if pd.notnull(v)]),
@@ -188,49 +187,53 @@ def processar_custo_medio(request):
         }
         return render(request, 'providers/custo_medio_integrado.html', context)
 
-    # 2. Requisição de filtro
+    # 3. Requisição de filtro (JSON)
     try:
-        mask_base = pd.Series(True, index=df.index)
-        if request.GET.get('servico'): mask_base &= (df['servico'] == request.GET.get('servico'))
-        if request.GET.get('interface'): mask_base &= (df['interface'] == request.GET.get('interface'))
-        if request.GET.get('ip_fixo'): mask_base &= (df['ip_fixo'].astype(str) == request.GET.get('ip_fixo'))
-        if request.GET.get('capacidade'): mask_base &= (df['capacidade_mb'] == int(request.GET.get('capacidade')))
-        if request.GET.get('vigencia'): mask_base &= (df['vigencia_meses'] == int(request.GET.get('vigencia')))
+        mask = pd.Series(True, index=df.index)
+        if request.GET.get('servico'): mask &= (df['servico'] == request.GET.get('servico'))
+        if request.GET.get('interface'): mask &= (df['interface'] == request.GET.get('interface'))
+        if request.GET.get('ip_fixo'): mask &= (df['ip_fixo'].astype(str) == request.GET.get('ip_fixo'))
+        if request.GET.get('capacidade'): mask &= (df['capacidade_mb'] == int(request.GET.get('capacidade')))
+        if request.GET.get('vigencia'): mask &= (df['vigencia_meses'] == int(request.GET.get('vigencia')))
 
-        # Tenta filtrar por Cidade e UF usando Fuzzy Matching
-        mask_cidade = mask_base.copy()
-        if request.GET.get('uf'): 
-            mask_cidade &= (df['uf'].str.upper() == request.GET.get('uf').upper())
-            
+        # Filtro de Cidade (Fuzzy)
+        mask_cidade = mask.copy()
         if request.GET.get('cidade'):
             cidade_digitada = normalizar_texto(request.GET.get('cidade'))
             cidades_disponiveis = df['cidade_norm'].unique().tolist()
-            # Busca a cidade mais parecida
-            melhor_match, score = process.extractOne(cidade_digitada, cidades_disponiveis)
-            
-            # Se a semelhança for maior que 80%, filtra por ela
-            if score >= 80:
-                mask_cidade &= (df['cidade_norm'] == melhor_match)
+            match = process.extractOne(cidade_digitada, cidades_disponiveis)
+            if match and match[1] >= 80:
+                mask_cidade &= (df['cidade_norm'] == match[0])
             else:
-                mask_cidade &= (df['cidade_norm'] == "---") # Força resultado vazio
+                mask_cidade &= False # Não encontrou cidade
+        
+        # Filtro de UF
+        if request.GET.get('uf'):
+            mask_cidade &= (df['uf'].str.upper() == request.GET.get('uf').upper())
 
         df_filtrado = df[mask_cidade]
 
-        # Hierarquia: Se não encontrar nada na cidade, tenta só pelo UF
-        if len(df_filtrado) == 0 and request.GET.get('uf'):
-            mask_uf = mask_base.copy()
+        # SE ESTIVER VAZIO, tenta recuar para apenas UF (Hierarquia)
+        if df_filtrado.empty and request.GET.get('uf'):
+            mask_uf = mask.copy()
             mask_uf &= (df['uf'].str.upper() == request.GET.get('uf').upper())
             df_filtrado = df[mask_uf]
-            
+
+        # PROTEÇÃO CONTRA ERRO 500: Verifica se o DF está vazio antes de calcular
+        if df_filtrado.empty:
+            return JsonResponse({'custo_medio': 0.00, 'quantidade_contratos': 0, 'nivel': 'Geral'})
+
         resultado = {
-            'custo_medio': round(float(df_filtrado['valor_mensal'].mean()), 2) if not df_filtrado.empty else 0.00,
+            'custo_medio': round(float(df_filtrado['valor_mensal'].mean()), 2),
             'quantidade_contratos': int(len(df_filtrado)),
-            'nivel': 'Cidade' if len(df[mask_cidade]) > 0 else ('Estado' if len(df_filtrado) > 0 else 'Geral')
+            'nivel': 'Cidade' if not df[mask_cidade].empty else ('Estado' if not df_filtrado.empty else 'Geral')
         }
         return JsonResponse(resultado)
 
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
+        # Logar o erro no console do servidor para debug
+        print(f"Erro no processamento: {e}")
+        return JsonResponse({'error': 'Erro ao processar filtros'}, status=500)
 
 # --- Nova Função de Processamento em Lote (CSV) ---
 @login_required

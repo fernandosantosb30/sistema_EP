@@ -59,7 +59,13 @@ class Contato(models.Model):
         app_label = 'providers'
     
 class HistoricoCusto(models.Model):
-    provedor = models.ForeignKey(Provedor, on_delete=models.CASCADE, related_name='historico_custos')
+    provedor = models.ForeignKey(
+        Provedor, 
+        on_delete=models.SET_NULL, # <--- Mude aqui
+        null=True,                 # <--- Necessário para SET_NULL
+        blank=True,                # <--- Necessário para SET_NULL
+        related_name='historico_custos'
+    )
     valor_custo = models.DecimalField(max_digits=10, decimal_places=2)
     data_registro = models.DateField(auto_now_add=True)
     descricao = models.CharField(max_length=255, blank=True, null=True)

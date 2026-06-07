@@ -35,14 +35,16 @@ function preencherSelect(id, lista) {
 
 // 2. Busca Individual com Lógica de Média Regional
 async function buscarMedia() {
+    // IMPORTANTE: As chaves aqui (servico, capacidade, vigencia) 
+    // DEVEM ser idênticas ao que está no seu if request.GET.get('...') no Python.
     const campos = {
-        cidade: document.getElementById('cidade')?.value,
-        uf: document.getElementById('uf')?.value,
-        tipo_servico: document.getElementById('tipo_servico')?.value,
-        interface: document.getElementById('interface')?.value,
-        ip_fixo: document.getElementById('ip_fixo')?.value,
-        velocidade: document.getElementById('velocidade')?.value,
-        prazo: document.getElementById('prazo')?.value
+        cidade: document.getElementById('cidade')?.value || '',
+        uf: document.getElementById('uf')?.value || '',
+        servico: document.getElementById('tipo_servico')?.value || '', // Mudou de tipo_servico para servico
+        interface: document.getElementById('interface')?.value || '',
+        ip_fixo: document.getElementById('ip_fixo')?.value || '',
+        capacidade: document.getElementById('velocidade')?.value || '', // Mudou de velocidade para capacidade
+        vigencia: document.getElementById('prazo')?.value || ''          // Mudou de prazo para vigencia
     };
 
     const displayMedia = document.getElementById('resultado-media');

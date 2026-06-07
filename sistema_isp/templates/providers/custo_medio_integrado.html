@@ -97,28 +97,32 @@
 
 <script>
 document.getElementById('btn-calcular').addEventListener('click', function() {
+    // 1. Corrigida a vírgula faltante após 'ip_fixo'
     const params = new URLSearchParams({
         cidade: document.getElementById('cidade').value,
         uf: document.getElementById('uf').value,
         servico: document.getElementById('tipo_servico').value,
         capacidade: document.getElementById('velocidade').value,
         vigencia: document.getElementById('prazo').value,
-        ip_fixo: document.getElementById('ip_fixo').value
+        ip_fixo: document.getElementById('ip_fixo').value,
         interface: document.getElementById('interface').value
     });
 
-    fetch(`/custo-medio/?${params.toString()}`)
+    // 2. Caminho corrigido e garantido
+    // Adicionamos um '/' no início para garantir que ele busque da raiz do domínio
+    fetch('/custo-medio/?' + params.toString())
     .then(res => {
-        if (!res.ok) throw new Error('Erro no servidor');
+        if (!res.ok) throw new Error('Erro no servidor: ' + res.status);
         return res.json();
     })
     .then(data => {
-        document.getElementById('resultado-media').innerText = 'R$ ' + (data.custo_medio || 0).toFixed(2);
+        // Atualiza a interface
+        document.getElementById('resultado-media').innerText = 'R$ ' + (data.custo_medio || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2});
         document.getElementById('resultado-amostragem').innerText = (data.quantidade_contratos || 0) + ' contratos';
     })
     .catch(err => {
         console.error(err);
-        alert('Erro ao calcular custo. Verifique os filtros.');
+        alert('Erro ao calcular custo. Verifique se o servidor está respondendo.');
     });
 });
 </script>

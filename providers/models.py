@@ -57,27 +57,7 @@ class Contato(models.Model):
 
     class Meta:
         app_label = 'providers'
-    
-class HistoricoCusto(models.Model):
-    provedor = models.ForeignKey(
-        Provedor, 
-        on_delete=models.SET_NULL, 
-        null=True,                 
-        blank=True,                
-        related_name='historico_custos'
-    )
-    valor_custo = models.DecimalField(max_digits=10, decimal_places=2)
-    data_registro = models.DateField(auto_now_add=True)
-    descricao = models.CharField(max_length=255, blank=True, null=True)
-
-    class Meta:
-        app_label = 'providers'
-    
-    def __str__(self):
-        # Ajuste aqui para evitar erro caso o provedor seja deletado
-        nome_provedor = self.provedor.nome if self.provedor else "Sem provedor"
-        return f"{nome_provedor} - R$ {self.valor_custo}"
-    
+       
 class ContratoCusto(models.Model):
     # Dados técnicos e contratuais
     cidade = models.CharField(max_length=100)

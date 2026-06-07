@@ -168,7 +168,6 @@ def processar_custo_medio(request):
     
     # 1. CRIAÇÃO DO FILTRO VIRTUAL E NORMALIZAÇÃO
     def extrair_interface(texto):
-        # Garante tratamento de nulos/vazios
         texto = normalizar_texto(texto) if texto else ""
         if 'FIBRA' in texto: return 'Fibra'
         if 'WIRELESS' in texto or 'RADIO' in texto: return 'Rádio'
@@ -205,7 +204,7 @@ def processar_custo_medio(request):
             if match and match[1] >= 80:
                 mask_cidade &= (df['cidade_norm'] == match[0])
             else:
-                mask_cidade &= False # Não encontrou cidade
+                mask_cidade &= False # Força não encontrar a cidade para disparar o fallback
         
         # Filtro de UF
         if request.GET.get('uf'):
@@ -223,15 +222,22 @@ def processar_custo_medio(request):
         if df_filtrado.empty:
             return JsonResponse({'custo_medio': 0.00, 'quantidade_contratos': 0, 'nivel': 'Geral'})
 
+        # Lógica refinada para definir o nível de abrangência do resultado
+        if request.GET.get('cidade') and not df[mask_cidade].empty:
+            nivel = 'Cidade'
+        elif request.GET.get('uf') and not df_filtrado.empty:
+            nivel = 'Estado'
+        else:
+            nivel = 'Geral'
+
         resultado = {
             'custo_medio': round(float(df_filtrado['valor_mensal'].mean()), 2),
             'quantidade_contratos': int(len(df_filtrado)),
-            'nivel': 'Cidade' if not df[mask_cidade].empty else ('Estado' if not df_filtrado.empty else 'Geral')
+            'nivel': nivel
         }
         return JsonResponse(resultado)
 
     except Exception as e:
-        # Logar o erro no console do servidor para debug
         print(f"Erro no processamento: {e}")
         return JsonResponse({'error': 'Erro ao processar filtros'}, status=500)
 

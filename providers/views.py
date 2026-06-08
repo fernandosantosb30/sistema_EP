@@ -28,11 +28,34 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.views.generic import ListView
 
 # --- IMPORTAÇÃO DA FUNÇÃO NORMALIZAR_TEXTO ---
-from .utils import normalizar_texto  # <--- CORRIGIDO: Agora vem de utils.py
+from .utils import normalizar_texto 
+from .models import providers_contratocusto
 
 # --- MODELOS E FORMULÁRIOS LOCAIS ---
 from .forms import ProvedorForm, ContatoForm, CidadeForm
 from .models import Provedor, Contato, CidadeAtendida
+
+def buscar_custo(row):
+    """
+    Busca o custo médio usando o ORM do Django. 
+    Corrigido para os nomes de campos definidos no seu model.
+    """
+    try:
+        # Usando os nomes exatos de campos do seu models.py:
+        # 'cidade', 'uf', 'servico', 'capacidade_mb' e 'valor_mensal'
+        custo = providers_contratocusto.objects.filter(
+            cidade__iexact=row['cidade_norm'], # Campo 'cidade' no model
+            uf__iexact=row['uf'],               # Campo 'uf' no model
+            servico__iexact=row['servico'],     # Campo 'servico' no model
+            capacidade_mb=row['capacidade_mb'] # Campo 'capacidade_mb' no model
+        ).first()
+        
+        # Retorna o valor_mensal se encontrar, ou 0.0 caso contrário
+        return float(custo.valor_mensal) if custo else 0.0
+        
+    except Exception as e:
+        # Se ocorrer qualquer erro, retorna 0.0 para não travar o upload do CSV
+        return 0.0
 
 #Paginator 
 class ListaProvedoresView(ListView):
@@ -150,23 +173,25 @@ def consulta_provedores(request):
 @login_required
 def processar_custo_medio(request):
     try:
-        # Busca os dados do banco
-        query = "SELECT cidade, uf, servico, valor_mensal, capacidade_mb, vigencia_meses, ip_fixo FROM public.providers_contratocusto"
-        df = pd.read_sql(query, connection)
+        # Busca os dados usando o ORM do Django (mais seguro e performático)
+        # O .values() converte diretamente para uma lista de dicionários, sendo mais leve que ler todo o SQL
+        queryset = providers_contratocusto.objects.all()
+        df = pd.DataFrame(list(queryset.values('cidade', 'uf', 'servico', 'valor_mensal', 'capacidade_mb', 'vigencia_meses', 'ip_fixo')))
         
         if df.empty:
             return JsonResponse({'error': 'Nenhum contrato encontrado no banco.'}, status=404)
 
         # 1. PREPARAÇÃO E NORMALIZAÇÃO
         def extrair_interface(texto):
-            texto = normalizar_texto(texto) if texto else ""
-            if 'FIBRA' in texto: return 'Fibra'
-            if 'WIRELESS' in texto or 'RADIO' in texto: return 'Rádio'
+            # Normalização robusta
+            norm = normalizar_texto(texto) if texto else ""
+            if 'fibra' in norm: return 'Fibra'
+            if 'wireless' in norm or 'radio' in norm: return 'Rádio'
             return 'Misto'
 
         df['interface'] = df['servico'].apply(extrair_interface)
         df['cidade_norm'] = df['cidade'].apply(lambda x: normalizar_texto(x) if x else "")
-        df['uf'] = df['uf'].str.upper().str.strip()
+        df['uf'] = df['uf'].astype(str).str.upper().str.strip()
 
         # 2. VERIFICAÇÃO DE PARÂMETROS
         params_keys = ['cidade', 'uf', 'servico', 'capacidade', 'vigencia', 'interface', 'ip_fixo']
@@ -174,30 +199,33 @@ def processar_custo_medio(request):
 
         if not has_params:
             context = {
-                'servicos': sorted([s for s in df['servico'].unique() if s]),
-                'vigencias': sorted([v for v in df['vigencia_meses'].unique() if pd.notnull(v)]),
-                'ips_fixos': sorted([str(ip) for ip in df['ip_fixo'].unique() if pd.notnull(ip)]),
+                'servicos': sorted(df['servico'].dropna().unique()),
+                'vigencias': sorted(df['vigencia_meses'].dropna().unique()),
+                'ips_fixos': sorted([str(ip) for ip in df['ip_fixo'].dropna().unique()]),
                 'interfaces': sorted(df['interface'].unique()) 
             }
             return render(request, 'providers/custo_medio_integrado.html', context)
 
         # 3. LÓGICA DE FILTROS
-        # Criamos uma máscara base com os filtros fixos (serviço, capacidade, etc)
         mask = pd.Series(True, index=df.index)
         if request.GET.get('servico'): mask &= (df['servico'] == request.GET.get('servico'))
         if request.GET.get('interface'): mask &= (df['interface'] == request.GET.get('interface'))
         if request.GET.get('ip_fixo'): mask &= (df['ip_fixo'].astype(str) == request.GET.get('ip_fixo'))
-        if request.GET.get('capacidade'): mask &= (df['capacidade_mb'] == int(request.GET.get('capacidade')))
-        if request.GET.get('vigencia'): mask &= (df['vigencia_meses'] == int(request.GET.get('vigencia')))
+        
+        try:
+            if request.GET.get('capacidade'): mask &= (df['capacidade_mb'] == int(request.GET.get('capacidade')))
+            if request.GET.get('vigencia'): mask &= (df['vigencia_meses'] == int(request.GET.get('vigencia')))
+        except ValueError:
+            return JsonResponse({'error': 'Parâmetros numéricos inválidos.'}, status=400)
 
         df_base = df[mask]
         cidade_req = normalizar_texto(request.GET.get('cidade')) if request.GET.get('cidade') else None
         uf_req = request.GET.get('uf', '').upper().strip()
 
-        # TENTA FILTRAR POR CIDADE
         df_final = pd.DataFrame()
         nivel = 'Geral'
 
+        # TENTA FILTRAR POR CIDADE
         if cidade_req:
             cidades_list = df_base['cidade_norm'].unique().tolist()
             matches = difflib.get_close_matches(cidade_req, cidades_list, n=1, cutoff=0.7)
@@ -209,16 +237,25 @@ def processar_custo_medio(request):
         if df_final.empty and uf_req:
             df_final = df_base[df_base['uf'] == uf_req]
             nivel = 'Estado' if not df_final.empty else 'Nenhum'
+        elif df_final.empty and not cidade_req and not uf_req:
+            df_final = df_base # Retorna o geral se não especificou cidade/uf
+            nivel = 'Geral'
 
-        # 4. RESULTADO
+        # 4. RESULTADO (Correção de segurança para mean())
+        custo_medio = 0.00
+        if not df_final.empty and 'valor_mensal' in df_final.columns:
+            media = df_final['valor_mensal'].mean()
+            custo_medio = round(float(media), 2) if pd.notnull(media) else 0.00
+
         return JsonResponse({
-            'custo_medio': round(float(df_final['valor_mensal'].mean()), 2) if not df_final.empty else 0.00,
+            'custo_medio': custo_medio,
             'quantidade_contratos': int(len(df_final)),
             'nivel': nivel
         })
 
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
+        logger.error(f"Erro no processamento de custo: {e}")
+        return JsonResponse({'error': 'Erro interno ao calcular custo.'}, status=500)
 
 # --- Nova Função de Processamento em Lote (CSV) ---
 @login_required
@@ -226,7 +263,7 @@ def processar_lote_csv(request):
     if request.method == 'POST' and request.FILES.get('arquivo_csv'):
         arquivo = request.FILES['arquivo_csv']
         try:
-            # 1. LEITURA ROBUSTA: Decodifica os bytes antes de passar para o Pandas
+            # 1. LEITURA ROBUSTA
             raw_data = arquivo.read()
             conteudo = None
             for encoding in ['utf-8-sig', 'latin-1', 'cp1252', 'cp850']:
@@ -243,8 +280,8 @@ def processar_lote_csv(request):
             df_input = pd.read_csv(io.StringIO(conteudo), sep=None, engine='python', on_bad_lines='skip')
             df_input.columns = [c.lower().strip() for c in df_input.columns]
             
-            # Validação: Verifica se as colunas necessárias existem
-            colunas_obrigatorias = ['cidade', 'uf', 'velocidade']
+            # Validação: Incluindo 'servico' como você pediu
+            colunas_obrigatorias = ['cidade', 'uf', 'servico', 'velocidade']
             if not all(col in df_input.columns for col in colunas_obrigatorias):
                 raise ValueError(f"O CSV deve conter as colunas: {', '.join(colunas_obrigatorias)}")
 
@@ -253,21 +290,28 @@ def processar_lote_csv(request):
             df_input['uf'] = df_input['uf'].astype(str).str.upper().str.strip()
             df_input['capacidade_mb'] = pd.to_numeric(df_input['velocidade'], errors='coerce').fillna(-1).astype(int)
 
-            # --- SUA LÓGICA DE BUSCA NO BANCO PERMANECE AQUI ---
-            # (Exemplo: df_custos = pd.read_sql("...", connection)...)
+            # --- AQUI VOCÊ DEVE EXECUTAR O CÁLCULO ---
+            # Exemplo: df_input['custo_medio'] = df_input.apply(buscar_custo, axis=1)
+            # Certifique-se de que sua função 'buscar_custo' utiliza as colunas certas
+            df_input['custo_medio'] = df_input.apply(buscar_custo, axis=1)
 
-            # 4. GERAR DOWNLOAD
+            # 4. TRATAMENTO DE SEGURANÇA E DOWNLOAD
+            if 'custo_medio' not in df_input.columns:
+                df_input['custo_medio'] = 0.0
+            
+            df_input['custo_medio'] = df_input['custo_medio'].fillna(0.0)
+
             response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
             response['Content-Disposition'] = 'attachment; filename="resultado_precificacao.csv"'
             
-            # Garantir que o df_input contenha a coluna 'custo_medio' calculada
-            df_input[['cidade', 'uf', 'velocidade', 'custo_medio']].to_csv(
+            # Exportação com as colunas esperadas
+            df_input[['cidade', 'uf', 'servico', 'velocidade', 'custo_medio']].to_csv(
                 path_or_buf=response, index=False, encoding='utf-8-sig', sep=';'
             )
             return response
             
         except Exception as e:
-            logger.exception("ERRO DETALHADO NO PROCESSAR_LOTE:") # Isso aparecerá no seu painel de Logs do Render
+            logger.exception("ERRO DETALHADO NO PROCESSAR_LOTE:")
             return HttpResponse(f"Erro ao processar: {str(e)}", status=500)
             
     return HttpResponse("Erro: Arquivo não enviado.", status=400)

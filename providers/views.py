@@ -37,24 +37,25 @@ from .models import Provedor, Contato, CidadeAtendida
 
 def buscar_custo(row):
     """
-    Busca o custo médio usando o ORM do Django. 
-    Corrigido para os nomes de campos definidos no seu model.
+    Busca o custo médio usando o ORM do Django de forma segura.
     """
     try:
-        # Usando os nomes exatos de campos do seu models.py:
-        # 'cidade', 'uf', 'servico', 'capacidade_mb' e 'valor_mensal'
+        # A busca retorna None se nenhum registro atender aos filtros
         custo = providers_contratocusto.objects.filter(
-            cidade__iexact=row['cidade_norm'], # Campo 'cidade' no model
-            uf__iexact=row['uf'],               # Campo 'uf' no model
-            servico__iexact=row['servico'],     # Campo 'servico' no model
-            capacidade_mb=row['capacidade_mb'] # Campo 'capacidade_mb' no model
+            cidade__iexact=row['cidade_norm'],
+            uf__iexact=row['uf'],
+            servico__iexact=row['servico'],
+            capacidade_mb=row['capacidade_mb']
         ).first()
         
-        # Retorna o valor_mensal se encontrar, ou 0.0 caso contrário
-        return float(custo.valor_mensal) if custo else 0.0
+        # Verificação de segurança: se custo for None, retorna 0.0
+        if custo and custo.valor_mensal:
+            return float(custo.valor_mensal)
+        return 0.0
         
     except Exception as e:
-        # Se ocorrer qualquer erro, retorna 0.0 para não travar o upload do CSV
+        # O log é importante para identificar se houve problema de conexão ou tipo
+        logger.error(f"Erro ao buscar custo para {row.get('cidade')}: {e}")
         return 0.0
 
 #Paginator 
@@ -272,43 +273,47 @@ def processar_lote_csv(request):
             df_input = pd.read_csv(io.StringIO(conteudo), sep=None, engine='python', on_bad_lines='skip')
             df_input.columns = [c.lower().strip() for c in df_input.columns]
             
+            # Validação de colunas essenciais
             colunas_obrigatorias = ['cidade', 'uf', 'servico', 'velocidade']
-            if not all(col in df_input.columns for col in colunas_obrigatorias):
-                raise ValueError(f"O CSV deve conter as colunas: {', '.join(colunas_obrigatorias)}")
+            for col in colunas_obrigatorias:
+                if col not in df_input.columns:
+                    raise ValueError(f"Coluna obrigatória ausente no CSV: {col}")
 
-            # 3. NORMALIZAÇÃO
+            # 3. NORMALIZAÇÃO E LIMPEZA
             df_input['cidade_norm'] = df_input['cidade'].apply(normalizar_texto)
             df_input['uf'] = df_input['uf'].astype(str).str.upper().str.strip()
+            # Garante que capacidade é int (0 se inválido)
             df_input['capacidade_mb'] = pd.to_numeric(df_input['velocidade'], errors='coerce').fillna(0).astype(int)
 
-            # --- CORREÇÃO DO CÁLCULO ---
-            # Aplicamos a função e forçamos a criação da coluna como float
-            df_input['custo_medio'] = df_input.apply(buscar_custo, axis=1)
-            df_input['custo_medio'] = pd.to_numeric(df_input['custo_medio'], errors='coerce').fillna(0.0)
+            # 4. PROCESSAMENTO DO CUSTO (O coração da operação)
+            # Em vez de confiar em um apply direto que pode falhar, fazemos um mapeamento seguro
+            def safe_buscar_custo(row):
+                try:
+                    return buscar_custo(row)
+                except Exception:
+                    return 0.0
 
-            # 4. TRATAMENTO DE SEGURANÇA E DOWNLOAD
-            # Garantimos que as colunas existem antes de tentar exportar
+            df_input['custo_medio'] = df_input.apply(safe_buscar_custo, axis=1)
+            
+            # Garante que a coluna de resultado seja float
+            df_input['custo_medio'] = df_input['custo_medio'].astype(float).fillna(0.0)
+
+            # 5. EXPORTAÇÃO SEGURA
             cols_export = ['cidade', 'uf', 'servico', 'velocidade', 'custo_medio']
             
-            # Verifica se todas as colunas existem no DataFrame antes da seleção
-            for col in cols_export:
-                if col not in df_input.columns:
-                    df_input[col] = "N/A" # ou 0.0, dependendo da coluna
-
             response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
             response['Content-Disposition'] = 'attachment; filename="resultado_precificacao.csv"'
             
-            # Exportação segura
             df_input[cols_export].to_csv(
                 path_or_buf=response, index=False, encoding='utf-8-sig', sep=';'
             )
             return response
             
         except Exception as e:
-            logger.exception("ERRO DETALHADO NO PROCESSAR_LOTE:")
-            return HttpResponse(f"Erro ao processar: {str(e)}", status=500)
+            logger.exception("Erro crítico no processamento de lote:")
+            return HttpResponse(f"Erro ao processar arquivo: {str(e)}", status=500)
             
-    return HttpResponse("Erro: Arquivo não enviado.", status=400)
+    return HttpResponse("Erro: Método inválido ou arquivo não enviado.", status=400)
 
 def get_provedor_form(): return modelform_factory(Provedor, fields="__all__")
 def get_contato_form(): return modelform_factory(Contato, fields="__all__")

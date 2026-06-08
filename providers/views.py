@@ -6,7 +6,7 @@ import unicodedata
 
 # --- BIBLIOTECAS DE TERCEIROS ---
 import pandas as pd
-from rapidfuzz import process
+from difflib import get_close_matches
 import difflib
 
 # --- BIBLIOTECAS DJANGO ---
@@ -30,7 +30,7 @@ from .utils import normalizar_texto  # <--- CORRIGIDO: Agora vem de utils.py
 
 # --- MODELOS E FORMULÁRIOS LOCAIS ---
 from .forms import ProvedorForm, ContatoForm, CidadeForm
-from .models import Provedor, Contato, CidadeAtendida
+from .models import Provedor, Contato, CidadeAtendida, Cidade
 
 #Paginator 
 class ListaProvedoresView(ListView):
@@ -155,7 +155,7 @@ def processar_custo_medio(request):
         if df.empty:
             return JsonResponse({'error': 'Nenhum contrato encontrado no banco.'}, status=404)
 
-        # 1. PREPARAÇÃO E NORMALIZAÇÃO DOS DADOS
+        # 1. PREPARAÇÃO E NORMALIZAÇÃO
         def extrair_interface(texto):
             texto = normalizar_texto(texto) if texto else ""
             if 'FIBRA' in texto: return 'Fibra'
@@ -179,38 +179,39 @@ def processar_custo_medio(request):
             }
             return render(request, 'providers/custo_medio_integrado.html', context)
 
-        # 3. LÓGICA DE FILTROS COM DIFFLIB
+        # 3. LÓGICA DE FILTROS
+        # Criamos uma máscara base com os filtros fixos (serviço, capacidade, etc)
         mask = pd.Series(True, index=df.index)
-        
-        # Filtros exatos
         if request.GET.get('servico'): mask &= (df['servico'] == request.GET.get('servico'))
         if request.GET.get('interface'): mask &= (df['interface'] == request.GET.get('interface'))
         if request.GET.get('ip_fixo'): mask &= (df['ip_fixo'].astype(str) == request.GET.get('ip_fixo'))
         if request.GET.get('capacidade'): mask &= (df['capacidade_mb'] == int(request.GET.get('capacidade')))
         if request.GET.get('vigencia'): mask &= (df['vigencia_meses'] == int(request.GET.get('vigencia')))
 
-        nivel = 'Geral'
+        df_base = df[mask]
         cidade_req = normalizar_texto(request.GET.get('cidade')) if request.GET.get('cidade') else None
         uf_req = request.GET.get('uf', '').upper().strip()
 
-        df_filtrado = df[mask]
+        # TENTA FILTRAR POR CIDADE
+        df_final = pd.DataFrame()
+        nivel = 'Geral'
 
-        # Lógica de correspondência com difflib (nativa do Python)
         if cidade_req:
-            cidades_list = df['cidade_norm'].unique().tolist()
-            # Busca a melhor correspondência (cutoff 0.7 = 70% de similaridade)
+            cidades_list = df_base['cidade_norm'].unique().tolist()
             matches = difflib.get_close_matches(cidade_req, cidades_list, n=1, cutoff=0.7)
             if matches:
-                df_filtrado = df_filtrado[df_filtrado['cidade_norm'] == matches[0]]
+                df_final = df_base[df_base['cidade_norm'] == matches[0]]
                 nivel = 'Cidade'
-        elif uf_req:
-            df_filtrado = df_filtrado[df_filtrado['uf'] == uf_req]
-            nivel = 'Estado'
+        
+        # FALLBACK: Se não encontrou por cidade, tenta por Estado
+        if df_final.empty and uf_req:
+            df_final = df_base[df_base['uf'] == uf_req]
+            nivel = 'Estado' if not df_final.empty else 'Nenhum'
 
         # 4. RESULTADO
         return JsonResponse({
-            'custo_medio': round(float(df_filtrado['valor_mensal'].mean()), 2) if not df_filtrado.empty else 0.00,
-            'quantidade_contratos': int(len(df_filtrado)),
+            'custo_medio': round(float(df_final['valor_mensal'].mean()), 2) if not df_final.empty else 0.00,
+            'quantidade_contratos': int(len(df_final)),
             'nivel': nivel
         })
 
@@ -380,13 +381,18 @@ def excluir_todas_cidades(request, provedor_id):
 def importar_mapeamento(request):
     if request.method == 'POST' and request.FILES.get('arquivo_cidades'):
         try:
-            arquivo_binario = request.FILES['arquivo_cidades']
-            # O TextIOWrapper é útil, mas o pd.read_csv com sep=None 
-            # já lida muito bem com arquivos CSV binários/texto.
-            df = pd.read_csv(arquivo_binario, sep=None, engine='python', header=0, on_bad_lines='skip')
+            # 1. CORREÇÃO: Lê o arquivo como texto decodificado
+            arquivo = request.FILES['arquivo_cidades']
+            conteudo = arquivo.read().decode('utf-8-sig') 
+            df = pd.read_csv(io.StringIO(conteudo), sep=None, engine='python', on_bad_lines='skip')
             df.columns = [str(c).lower().strip() for c in df.columns]
             
-            # --- PREPARAÇÃO DO CSV ---
+            # 2. Carrega todas as cidades do banco para memória para comparação inteligente
+            # Vamos criar um dicionário {cidade_normalizada: objeto_cidade}
+            todas_cidades = Cidade.objects.select_related('provedor').all()
+            mapa_cidades = {normalizar_texto(c.nome): c for c in todas_cidades}
+            lista_norm_banco = list(mapa_cidades.keys())
+
             response = HttpResponse(content_type='text/csv; charset=utf-8')
             response['Content-Disposition'] = 'attachment; filename="mapeamento_filtrado.csv"'
             writer = csv.writer(response, delimiter=';')
@@ -396,24 +402,20 @@ def importar_mapeamento(request):
             
             if 'cidade' in df.columns:
                 for _, row in df.iterrows():
-                    # USANDO A FUNÇÃO PADRONIZADA AQUI:
-                    nome_cidade_norm = normalizar_texto(row['cidade'])
-                    if not nome_cidade_norm: continue
+                    cidade_input = normalizar_texto(row['cidade'])
+                    if not cidade_input: continue
                     
-                    # Filtra provedores que atendem a esta cidade (normalizada)
-                    # Nota: Certifique-se que no seu banco o nome da cidade 
-                    # também esteja armazenado seguindo o padrão normalizar_texto()
-                    provedores = Provedor.objects.filter(
-                        cidades__nome__icontains=nome_cidade_norm
-                    ).distinct()
+                    # 3. BUSCA INTELIGENTE: Procura a cidade mais próxima (cutoff 0.6 = 60% de similaridade)
+                    matches = get_close_matches(cidade_input, lista_norm_banco, n=1, cutoff=0.6)
                     
-                    for p in provedores:
-                        cidade_obj = p.cidades.filter(nome__icontains=nome_cidade_norm).first()
+                    if matches:
+                        cidade_obj = mapa_cidades[matches[0]]
+                        p = cidade_obj.provedor
                         contato = p.contatos.first()
                         
                         writer.writerow([
-                            nome_cidade_norm, # Já está em MAIÚSCULO e limpo
-                            cidade_obj.uf if cidade_obj else "N/A",
+                            cidade_obj.nome, # Nome original do banco
+                            cidade_obj.uf,
                             p.nome,
                             f"{contato.nome} ({contato.telefone})" if contato else "N/A",
                             'Sim' if p.parceiro_bst else 'Não'

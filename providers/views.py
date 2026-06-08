@@ -278,44 +278,56 @@ def processar_lote_csv(request):
             if conteudo is None:
                 raise ValueError("Formato de arquivo incompatível. Tente salvar como UTF-8.")
 
-            # 2. CARREGA O CSV
+            # 2. CARREGA O CSV DO USUÁRIO
             df_input = pd.read_csv(io.StringIO(conteudo), sep=None, engine='python', on_bad_lines='skip')
             df_input.columns = [c.lower().strip() for c in df_input.columns]
             
-            # Validação de colunas essenciais
-            colunas_obrigatorias = ['cidade', 'uf', 'servico', 'velocidade']
-            for col in colunas_obrigatorias:
-                if col not in df_input.columns:
-                    raise ValueError(f"Coluna obrigatória ausente no CSV: {col}")
+            # 3. CARREGA BASE DE DADOS DO DJANGO PARA MEMÓRIA (Performance)
+            contratos_db = providers_contratocusto.objects.all().values(
+                'cidade', 'uf', 'servico', 'valor_mensal', 'capacidade_mb'
+            )
+            df_db = pd.DataFrame(list(contratos_db))
+            
+            # Prepara base do banco
+            df_db['cidade_norm'] = df_db['cidade'].apply(lambda x: normalizar_texto(x) if x else "")
+            df_db['uf'] = df_db['uf'].astype(str).str.upper().str.strip()
+            df_db['valor_mensal'] = pd.to_numeric(df_db['valor_mensal'], errors='coerce')
 
-            # 3. NORMALIZAÇÃO E LIMPEZA
-            df_input['cidade_norm'] = df_input['cidade'].apply(normalizar_texto)
+            # Prepara entrada do usuário
+            df_input['cidade_norm'] = df_input['cidade'].apply(lambda x: normalizar_texto(x) if x else "")
             df_input['uf'] = df_input['uf'].astype(str).str.upper().str.strip()
-            # Garante que capacidade é int (0 se inválido)
-            df_input['capacidade_mb'] = pd.to_numeric(df_input['velocidade'], errors='coerce').fillna(0).astype(int)
+            df_input['capacidade_mb'] = pd.to_numeric(df_input['velocidade'].replace(r'\D', '', regex=True), errors='coerce').fillna(0).astype(int)
 
-            # 4. PROCESSAMENTO DO CUSTO (O coração da operação)
-            # Em vez de confiar em um apply direto que pode falhar, fazemos um mapeamento seguro
-            def safe_buscar_custo(row):
-                try:
-                    return buscar_custo(row)
-                except Exception:
-                    return 0.0
+            # 4. LÓGICA DE CÁLCULO (O coração da operação)
+            def calcular_custo(row):
+                # Filtro obrigatório: Serviço e Velocidade
+                mask = (df_db['servico'] == row['servico']) & (df_db['capacidade_mb'] == row['capacidade_mb'])
+                
+                # Nível 1: Cidade
+                match_cidade = df_db[mask & (df_db['cidade_norm'] == row['cidade_norm'])]
+                if not match_cidade.empty:
+                    return match_cidade['valor_mensal'].mean()
+                
+                # Nível 2: Estado
+                match_estado = df_db[mask & (df_db['uf'] == row['uf'])]
+                if not match_estado.empty:
+                    return match_estado['valor_mensal'].mean()
+                
+                # Nível 3: Geral
+                match_geral = df_db[mask]
+                if not match_geral.empty:
+                    return match_geral['valor_mensal'].mean()
+                
+                return 0.0
 
-            df_input['custo_medio'] = df_input.apply(safe_buscar_custo, axis=1)
-            
-            # Garante que a coluna de resultado seja float
-            df_input['custo_medio'] = df_input['custo_medio'].astype(float).fillna(0.0)
+            df_input['custo_medio'] = df_input.apply(calcular_custo, axis=1)
 
-            # 5. EXPORTAÇÃO SEGURA
+            # 5. EXPORTAÇÃO
             cols_export = ['cidade', 'uf', 'servico', 'velocidade', 'custo_medio']
-            
             response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
             response['Content-Disposition'] = 'attachment; filename="resultado_precificacao.csv"'
             
-            df_input[cols_export].to_csv(
-                path_or_buf=response, index=False, encoding='utf-8-sig', sep=';'
-            )
+            df_input[cols_export].to_csv(path_or_buf=response, index=False, encoding='utf-8-sig', sep=';')
             return response
             
         except Exception as e:

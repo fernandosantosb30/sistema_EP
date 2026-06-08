@@ -299,11 +299,18 @@ def processar_lote_csv(request):
             df_input['capacidade_mb'] = pd.to_numeric(df_input['velocidade'].replace(r'\D', '', regex=True), errors='coerce').fillna(0).astype(int)
 
             # 4. LÓGICA DE CÁLCULO (O coração da operação)
+            # ... dentro da sua função processar_lote_csv ...
+            print(f"Buscando: {df_input.iloc[0]['servico']} | {df_input.iloc[0]['capacidade_mb']}MB")
+            print(f"Exemplo do banco: {df_db.iloc[0]['servico']} | {df_db.iloc[0]['capacidade_mb']}MB")
+
+            # 4. LÓGICA DE CÁLCULO ESTRICTA
             def calcular_custo(row):
-                # Filtro obrigatório: Serviço e Velocidade
-                mask = (df_db['servico'] == row['servico']) & (df_db['capacidade_mb'] == row['capacidade_mb'])
+                # Filtro Base: Serviço (String) e Velocidade (Int)
+                # IMPORTANTE: Verifique se o nome do serviço no CSV é IDENTICO ao do banco
+                mask = (df_db['servico'] == row['servico']) & \
+                       (df_db['capacidade_mb'] == int(row['capacidade_mb']))
                 
-                # Nível 1: Cidade
+                # Nível 1: Cidade (Normalizada)
                 match_cidade = df_db[mask & (df_db['cidade_norm'] == row['cidade_norm'])]
                 if not match_cidade.empty:
                     return match_cidade['valor_mensal'].mean()
@@ -313,17 +320,21 @@ def processar_lote_csv(request):
                 if not match_estado.empty:
                     return match_estado['valor_mensal'].mean()
                 
-                # Nível 3: Geral
-                match_geral = df_db[mask]
-                if not match_geral.empty:
-                    return match_geral['valor_mensal'].mean()
-                
-                return 0.0
+                return None # Retorna None se não achar nada (evita 0.0 falso)
 
+            # Aplica o cálculo
             df_input['custo_medio'] = df_input.apply(calcular_custo, axis=1)
+            
+            # REMOVER LINHAS VAZIAS: Garante que só o que foi enviado volte
+            df_input = df_input.dropna(subset=['cidade', 'servico'])
+            
+            # Preencher nulos com uma mensagem ou vazio para não ficar 0.0
+            df_input['custo_medio'] = df_input['custo_medio'].fillna('Não encontrado')
 
             # 5. EXPORTAÇÃO
+            # Exporta apenas as colunas solicitadas
             cols_export = ['cidade', 'uf', 'servico', 'velocidade', 'custo_medio']
+            # ... resto do código de resposta ...
             response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
             response['Content-Disposition'] = 'attachment; filename="resultado_precificacao.csv"'
             

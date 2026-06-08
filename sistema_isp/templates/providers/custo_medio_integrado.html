@@ -96,7 +96,7 @@
 </div>
 
 <script>
-// 1. Função auxiliar global (fora dos eventos)
+// 1. Função auxiliar para obter o token CSRF (independente do script estar no HTML ou JS externo)
 function getCookie(name) {
     let cookieValue = null;
     if (document.cookie && document.cookie !== '') {
@@ -139,16 +139,27 @@ document.getElementById('btn-calcular').addEventListener('click', function() {
         return res.json();
     })
     .then(data => {
+        const resultadoMedia = document.getElementById('resultado-media');
+        const resultadoAmostragem = document.getElementById('resultado-amostragem');
+        
         const custoFormatado = (data.custo_medio || 0).toLocaleString('pt-BR', {
             style: 'currency', 
             currency: 'BRL'
         });
-        document.getElementById('resultado-media').innerText = custoFormatado;
-        document.getElementById('resultado-amostragem').innerText = (data.quantidade_contratos || 0) + ' contratos';
+        resultadoMedia.innerText = custoFormatado;
+        
+        // Exibição da mensagem conforme o nível de cálculo (Cidade vs Estado)
+        if (data.nivel === 'Cidade') {
+            resultadoAmostragem.innerText = `${data.quantidade_contratos} contratos encontrados na cidade.`;
+        } else if (data.nivel === 'Estado') {
+            resultadoAmostragem.innerText = `Sem registros na cidade. Média calculada para o estado: ${data.quantidade_contratos} contratos.`;
+        } else {
+            resultadoAmostragem.innerText = "Sem registros encontrados para esta combinação.";
+        }
     })
     .catch(err => {
         console.error(err);
-        alert('Erro ao calcular.');
+        alert('Erro ao calcular. Tente verificar se os filtros estão corretos.');
     })
     .finally(() => {
         btn.innerHTML = originalText;
@@ -188,7 +199,7 @@ document.getElementById('btn-processar-lote').addEventListener('click', function
         a.remove();
     })
     .catch(err => {
-        console.error("Erro:", err);
+        console.error("Erro no processamento:", err);
         alert("Erro no processamento: " + err.message);
     });
 });

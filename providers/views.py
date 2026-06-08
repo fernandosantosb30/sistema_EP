@@ -8,6 +8,8 @@ import unicodedata
 import pandas as pd
 from difflib import get_close_matches
 import difflib
+import logging
+logger = logging.getLogger(__name__)
 
 # --- BIBLIOTECAS DJANGO ---
 from django import forms
@@ -265,7 +267,7 @@ def processar_lote_csv(request):
             return response
             
         except Exception as e:
-            # O retorno de erro 500 é capturado pelo seu alert() no JavaScript
+            logger.exception("ERRO DETALHADO NO PROCESSAR_LOTE:") # Isso aparecerá no seu painel de Logs do Render
             return HttpResponse(f"Erro ao processar: {str(e)}", status=500)
             
     return HttpResponse("Erro: Arquivo não enviado.", status=400)

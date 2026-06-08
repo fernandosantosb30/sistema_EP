@@ -384,7 +384,7 @@ def importar_mapeamento(request):
             arquivo = request.FILES['arquivo_cidades']
             raw_data = arquivo.read()
             
-            # Tenta decodificar o arquivo tentando vários formatos (suporta MS-DOS)
+            # 1. Decodificação robusta para suportar padrões legados (MS-DOS)
             conteudo = None
             for encoding in ['utf-8-sig', 'latin-1', 'cp850', 'cp1252']:
                 try:
@@ -394,47 +394,52 @@ def importar_mapeamento(request):
                     continue
             
             if conteudo is None:
-                raise ValueError("Formato de arquivo não suportado. Tente salvar o CSV como UTF-8.")
+                raise ValueError("Formato de arquivo não suportado. Tente salvar como UTF-8.")
 
-            # Carrega o CSV
+            # 2. Carregar e Limpar DataFrame
             df = pd.read_csv(io.StringIO(conteudo), sep=None, engine='python', on_bad_lines='skip')
             df.columns = [str(c).lower().strip() for c in df.columns]
             
-            # Carrega cidades do banco para memória para busca inteligente
+            if 'cidade' not in df.columns:
+                raise ValueError("A coluna 'cidade' não foi encontrada no arquivo.")
+
+            # Remove linhas vazias e duplicatas para não repetir cidades no resultado
+            cidades_entrada = df['cidade'].dropna().unique()
+            
+            # 3. Preparar dados do banco para busca em memória
             todas_cidades = CidadeAtendida.objects.select_related('provedor').all()
-            # Mapeia: { 'SAOPAULO': objeto_cidade }
             mapa_cidades = {normalizar_texto(c.nome): c for c in todas_cidades}
             lista_norm_banco = list(mapa_cidades.keys())
 
-            # Prepara a resposta CSV
-            response = HttpResponse(content_type='text/csv; charset=utf-8')
+            # 4. Preparar resposta (utf-8-sig para o Excel reconhecer acentos)
+            response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
             response['Content-Disposition'] = 'attachment; filename="mapeamento_filtrado.csv"'
             writer = csv.writer(response, delimiter=';')
             writer.writerow(['Cidade', 'UF', 'Parceiro', 'Contato', 'Trunk'])
             
             encontrou_algum = False
             
-            if 'cidade' in df.columns:
-                for _, row in df.iterrows():
-                    cidade_input = normalizar_texto(str(row['cidade']))
-                    if not cidade_input: continue
+            # 5. Processamento único por cidade
+            for cidade_raw in cidades_entrada:
+                cidade_input = normalizar_texto(str(cidade_raw))
+                if not cidade_input: continue
+                
+                # Busca inteligente (cutoff 0.7 evita falsos positivos)
+                matches = get_close_matches(cidade_input, lista_norm_banco, n=1, cutoff=0.7)
+                
+                if matches:
+                    cidade_obj = mapa_cidades[matches[0]]
+                    p = cidade_obj.provedor
+                    contato = p.contatos.first()
                     
-                    # Busca inteligente
-                    matches = get_close_matches(cidade_input, lista_norm_banco, n=1, cutoff=0.6)
-                    
-                    if matches:
-                        cidade_obj = mapa_cidades[matches[0]]
-                        p = cidade_obj.provedor
-                        contato = p.contatos.first()
-                        
-                        writer.writerow([
-                            cidade_obj.nome,
-                            cidade_obj.uf,
-                            p.nome,
-                            f"{contato.nome} ({contato.telefone})" if contato else "N/A",
-                            'Sim' if getattr(p, 'parceiro_bst', False) else 'Não'
-                        ])
-                        encontrou_algum = True
+                    writer.writerow([
+                        cidade_obj.nome,
+                        cidade_obj.uf,
+                        p.nome,
+                        f"{contato.nome} ({contato.telefone})" if contato else "N/A",
+                        'Sim' if getattr(p, 'parceiro_bst', False) else 'Não'
+                    ])
+                    encontrou_algum = True
             
             if not encontrou_algum:
                 messages.warning(request, "Nenhum mapeamento encontrado para as cidades informadas.")
@@ -449,24 +454,41 @@ def importar_mapeamento(request):
     return render(request, 'providers/consulta.html')
 
 def exportar_mapeamento_csv(request, resultado):
-    # 'resultado' é a lista de provedores que você já encontrou
-    response = HttpResponse(content_type='text/csv')
+    """
+    Exporta uma lista de provedores para CSV, tratando corretamente 
+    a codificação para leitura no Excel (UTF-8 com BOM).
+    """
+    # Define o content type com charset utf-8
+    response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
     response['Content-Disposition'] = 'attachment; filename="mapeamento_parceiros.csv"'
 
+    # O 'utf-8-sig' acima já ajuda o Excel a reconhecer os caracteres especiais
     writer = csv.writer(response, delimiter=';')
+    
+    # Cabeçalho
     writer.writerow(['Cidade', 'UF', 'Parceiro', 'Contato', 'Trunk'])
 
     for p in resultado:
         # Acessa as cidades relacionadas ao provedor
-        for cidade in p.cidades.all():
+        cidades = p.cidades.all()
+        
+        # Se o provedor não tiver cidades, você pode decidir pular ou mostrar como N/A
+        if not cidades:
+            continue
+            
+        for cidade in cidades:
+            # Obtém o contato de forma segura
+            contato_obj = p.contatos.first()
+            nome_contato = f"{contato_obj.nome} ({contato_obj.telefone})" if contato_obj else "N/A"
+            
             writer.writerow([
                 cidade.nome,
                 cidade.uf,
                 p.nome,
-                # Assume que o primeiro contato é o principal
-                p.contatos.first().nome if p.contatos.exists() else 'N/A',
-                'Sim' if p.parceiro_bst else 'Não'
+                nome_contato,
+                'Sim' if getattr(p, 'parceiro_bst', False) else 'Não'
             ])
+            
     return response
 
 @login_required

@@ -381,18 +381,32 @@ def excluir_todas_cidades(request, provedor_id):
 def importar_mapeamento(request):
     if request.method == 'POST' and request.FILES.get('arquivo_cidades'):
         try:
-            # 1. CORREÇÃO: Lê o arquivo como texto decodificado
             arquivo = request.FILES['arquivo_cidades']
-            conteudo = arquivo.read().decode('utf-8-sig') 
+            raw_data = arquivo.read()
+            
+            # Tenta decodificar o arquivo tentando vários formatos (suporta MS-DOS)
+            conteudo = None
+            for encoding in ['utf-8-sig', 'latin-1', 'cp850', 'cp1252']:
+                try:
+                    conteudo = raw_data.decode(encoding)
+                    break
+                except UnicodeDecodeError:
+                    continue
+            
+            if conteudo is None:
+                raise ValueError("Formato de arquivo não suportado. Tente salvar o CSV como UTF-8.")
+
+            # Carrega o CSV
             df = pd.read_csv(io.StringIO(conteudo), sep=None, engine='python', on_bad_lines='skip')
             df.columns = [str(c).lower().strip() for c in df.columns]
             
-            # 2. Carrega todas as cidades do banco para memória para comparação inteligente
-            # Vamos criar um dicionário {cidade_normalizada: objeto_cidade}
+            # Carrega cidades do banco para memória para busca inteligente
             todas_cidades = CidadeAtendida.objects.select_related('provedor').all()
+            # Mapeia: { 'SAOPAULO': objeto_cidade }
             mapa_cidades = {normalizar_texto(c.nome): c for c in todas_cidades}
             lista_norm_banco = list(mapa_cidades.keys())
 
+            # Prepara a resposta CSV
             response = HttpResponse(content_type='text/csv; charset=utf-8')
             response['Content-Disposition'] = 'attachment; filename="mapeamento_filtrado.csv"'
             writer = csv.writer(response, delimiter=';')
@@ -402,10 +416,10 @@ def importar_mapeamento(request):
             
             if 'cidade' in df.columns:
                 for _, row in df.iterrows():
-                    cidade_input = normalizar_texto(row['cidade'])
+                    cidade_input = normalizar_texto(str(row['cidade']))
                     if not cidade_input: continue
                     
-                    # 3. BUSCA INTELIGENTE: Procura a cidade mais próxima (cutoff 0.6 = 60% de similaridade)
+                    # Busca inteligente
                     matches = get_close_matches(cidade_input, lista_norm_banco, n=1, cutoff=0.6)
                     
                     if matches:
@@ -414,11 +428,11 @@ def importar_mapeamento(request):
                         contato = p.contatos.first()
                         
                         writer.writerow([
-                            cidade_obj.nome, # Nome original do banco
+                            cidade_obj.nome,
                             cidade_obj.uf,
                             p.nome,
                             f"{contato.nome} ({contato.telefone})" if contato else "N/A",
-                            'Sim' if p.parceiro_bst else 'Não'
+                            'Sim' if getattr(p, 'parceiro_bst', False) else 'Não'
                         ])
                         encontrou_algum = True
             

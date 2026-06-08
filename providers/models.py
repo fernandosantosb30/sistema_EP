@@ -77,6 +77,7 @@ class providers_contratocusto(models.Model):
     vigencia_meses = models.IntegerField()
     
     class Meta:
+        db_table = 'providers_contratocusto'
         app_label = 'providers'
 
     def __str__(self):

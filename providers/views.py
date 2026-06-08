@@ -30,7 +30,7 @@ from .utils import normalizar_texto  # <--- CORRIGIDO: Agora vem de utils.py
 
 # --- MODELOS E FORMULÁRIOS LOCAIS ---
 from .forms import ProvedorForm, ContatoForm, CidadeForm
-from .models import Provedor, Contato, CidadeAtendida, Cidade
+from .models import Provedor, Contato, CidadeAtendida
 
 #Paginator 
 class ListaProvedoresView(ListView):
@@ -389,7 +389,7 @@ def importar_mapeamento(request):
             
             # 2. Carrega todas as cidades do banco para memória para comparação inteligente
             # Vamos criar um dicionário {cidade_normalizada: objeto_cidade}
-            todas_cidades = Cidade.objects.select_related('provedor').all()
+            todas_cidades = CidadeAtendida.objects.select_related('provedor').all()
             mapa_cidades = {normalizar_texto(c.nome): c for c in todas_cidades}
             lista_norm_banco = list(mapa_cidades.keys())
 

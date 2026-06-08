@@ -133,7 +133,12 @@ document.getElementById('btn-calcular').addEventListener('click', function() {
     btn.innerHTML = 'Calculando...';
     btn.disabled = true;
 
-    fetch('/custo-medio/?' + params.toString())
+    fetch('/custo-medio/?' + params.toString(), { 
+    method: 'GET',
+    headers: {
+        'X-Requested-With': 'XMLHttpRequest'
+    }
+    })
     .then(res => {
         if (!res.ok) throw new Error('Erro no servidor');
         return res.json();

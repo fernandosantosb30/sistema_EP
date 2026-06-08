@@ -174,21 +174,20 @@ def consulta_provedores(request):
 @login_required
 def processar_custo_medio(request):
     try:
-        # Busca os dados usando o ORM do Django.
-        # Ao usar .values(), ele traz dicionários, que o Pandas converte muito rápido.
         queryset = providers_contratocusto.objects.all().values(
             'cidade', 'uf', 'servico', 'valor_mensal', 'capacidade_mb', 'vigencia_meses', 'ip_fixo'
         )
         df = pd.DataFrame(list(queryset))
         
-        # CORREÇÃO CRÍTICA: Garante que valor_mensal seja numérico para o cálculo da média.
-        # Sem isso, se o valor for um objeto Decimal do Django, o mean() pode falhar ou retornar erro.
         if not df.empty:
             df['valor_mensal'] = pd.to_numeric(df['valor_mensal'], errors='coerce')
         else:
-            return JsonResponse({'error': 'Nenhum contrato encontrado no banco.'}, status=404)
+            # Em caso de banco vazio, se for AJAX retorna erro, senão renderiza vazio
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({'error': 'Nenhum contrato encontrado.'}, status=404)
+            df = pd.DataFrame(columns=['cidade', 'uf', 'servico', 'valor_mensal', 'capacidade_mb', 'vigencia_meses', 'ip_fixo', 'interface'])
 
-        # 1. PREPARAÇÃO E NORMALIZAÇÃO
+        # PREPARAÇÃO E NORMALIZAÇÃO
         def extrair_interface(texto):
             norm = normalizar_texto(texto) if texto else ""
             if 'fibra' in norm: return 'Fibra'
@@ -199,9 +198,7 @@ def processar_custo_medio(request):
         df['cidade_norm'] = df['cidade'].apply(lambda x: normalizar_texto(x) if x else "")
         df['uf'] = df['uf'].astype(str).str.upper().str.strip()
 
-        # ... (seu código de verificação de parâmetros permanece igual) ...
-
-        # 3. LÓGICA DE FILTROS
+        # LÓGICA DE FILTROS
         mask = pd.Series(True, index=df.index)
         if request.GET.get('servico'): mask &= (df['servico'] == request.GET.get('servico'))
         if request.GET.get('interface'): mask &= (df['interface'] == request.GET.get('interface'))
@@ -234,17 +231,29 @@ def processar_custo_medio(request):
             df_final = df_base
             nivel = 'Geral'
 
-        # 4. RESULTADO
         custo_medio = 0.00
         if not df_final.empty and 'valor_mensal' in df_final.columns:
             media = df_final['valor_mensal'].mean()
             custo_medio = round(float(media), 2) if pd.notnull(media) else 0.00
 
-        return JsonResponse({
+        dados_resposta = {
             'custo_medio': custo_medio,
             'quantidade_contratos': int(len(df_final)),
             'nivel': nivel
-        })
+        }
+
+        # RETORNO CONDICIONAL
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse(dados_resposta)
+
+        context = {
+            'dados': dados_resposta,
+            'servicos': sorted(df['servico'].dropna().unique()),
+            'vigencias': sorted(df['vigencia_meses'].dropna().unique()),
+            'ips_fixos': sorted([str(ip) for ip in df['ip_fixo'].dropna().unique()]),
+            'interfaces': sorted(df['interface'].unique())
+        }
+        return render(request, 'providers/custo_medio_integrado.html', context)
 
     except Exception as e:
         logger.error(f"Erro no processamento de custo: {e}")

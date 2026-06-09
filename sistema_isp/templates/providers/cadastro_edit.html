@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 
 {% block content %}
-</div>
+
 {% if messages %}
     {% for message in messages %}
         <div class="alert alert-danger alert-dismissible fade show" role="alert">
@@ -188,8 +188,8 @@
             <button type="submit" class="btn btn-primary px-4 shadow">Salvar Provedor</button>
             <a href="{% url 'lista_provedores' %}" class="btn btn-info text-white px-4 ms-2">Cancelar</a>
         </div>
-    </form>
-</div>
+    </form> <div class="row g-3 mt-1"> 
+        </div>
 
 <div class="modal fade" id="modalCidade" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">

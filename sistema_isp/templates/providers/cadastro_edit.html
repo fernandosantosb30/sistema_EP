@@ -184,12 +184,18 @@
     </div>
 </div>
 
-        <div class="mt-4 mb-5">
-            <button type="submit" class="btn btn-primary px-4 shadow">Salvar Provedor</button>
-            <a href="{% url 'lista_provedores' %}" class="btn btn-info text-white px-4 ms-2">Cancelar</a>
-        </div>
-    </form> <div class="row g-3 mt-1"> 
-        </div>
+        <form method="post" id="meuFormulario" onsubmit="exibirSalvando()">
+    {% csrf_token %}
+    
+    <button type="submit" id="btnSalvar" class="btn btn-primary">Salvar Provedor</button>
+</form> 
+<script>
+function exibirSalvando() {
+    const btn = document.getElementById('btnSalvar');
+    btn.disabled = true; // Desabilita para evitar cliques duplos
+    btn.innerText = 'Salvando...'; // Feedback visual
+}
+</script>
 
 <div class="modal fade" id="modalCidade" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">

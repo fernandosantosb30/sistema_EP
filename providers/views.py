@@ -372,17 +372,20 @@ def adicionar_contato(request, provedor_id):
 
 @login_required
 def editar_provedor(request, pk=None):
-    provedor = None
-    if pk: # Apenas busca se um ID for fornecido
-        provedor = get_object_or_404(Provedor, pk=pk)
+    provedor = get_object_or_404(Provedor, pk=pk) if pk else None
 
     if request.method == 'POST':
         form = ProvedorForm(request.POST, instance=provedor)
         if form.is_valid():
             form.save()
+            messages.success(request, "Provedor salvo com sucesso!")
             return redirect('lista_provedores')
+        else:
+            # ADICIONE ISTO para ver os erros no seu console ou terminal:
+            print(form.errors) 
+            messages.error(request, f"Erro ao salvar: {form.errors}")
     else:
-        form = ProvedorForm(instance=provedor) # instance=None cria novo registro
+        form = ProvedorForm(instance=provedor)
 
     form_cidade = CidadeForm() 
     form_contato = ContatoForm()

@@ -11,6 +11,7 @@ class ProvedorForm(forms.ModelForm):
             'link_dedicado', 'link_banda_larga', 'zona_rural'
         ]
         widgets = {
+            'codigo': forms.TextInput(attrs={'class': 'form-control bg-dark text-white border-secondary'}),
             'nome': forms.TextInput(attrs={'class': 'form-control bg-dark text-white border-secondary'}),
             'razao_social': forms.TextInput(attrs={'class': 'form-control bg-dark text-white border-secondary'}),
             'cnpj': forms.TextInput(attrs={'class': 'form-control bg-dark text-white border-secondary'}),

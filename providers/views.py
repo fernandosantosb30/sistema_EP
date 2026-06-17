@@ -282,32 +282,30 @@ def processar_lote_csv(request):
             df_input = pd.read_csv(io.StringIO(conteudo), sep=None, engine='python', on_bad_lines='skip')
             df_input.columns = [c.lower().strip() for c in df_input.columns]
             
-            # 3. CARREGA BASE DE DADOS DO DJANGO PARA MEMÓRIA (Performance)
+            # 3. CARREGA BASE DE DADOS DO DJANGO PARA MEMÓRIA
             contratos_db = providers_contratocusto.objects.all().values(
                 'cidade', 'uf', 'servico', 'valor_mensal', 'capacidade_mb'
             )
             df_db = pd.DataFrame(list(contratos_db))
             
-            # Prepara base do banco
+            # Prepara base do banco com normalização de serviço
             df_db['cidade_norm'] = df_db['cidade'].apply(lambda x: normalizar_texto(x) if x else "")
+            df_db['servico_norm'] = df_db['servico'].apply(lambda x: normalizar_texto(x) if x else "")
             df_db['uf'] = df_db['uf'].astype(str).str.upper().str.strip()
             df_db['valor_mensal'] = pd.to_numeric(df_db['valor_mensal'], errors='coerce')
 
             # Prepara entrada do usuário
             df_input['cidade_norm'] = df_input['cidade'].apply(lambda x: normalizar_texto(x) if x else "")
+            df_input['servico_norm'] = df_input['servico'].apply(lambda x: normalizar_texto(x) if x else "")
             df_input['uf'] = df_input['uf'].astype(str).str.upper().str.strip()
+            
+            # CORREÇÃO VELOCIDADE: extrai número e força tipo inteiro
             df_input['capacidade_mb'] = pd.to_numeric(df_input['velocidade'].replace(r'\D', '', regex=True), errors='coerce').fillna(0).astype(int)
 
-            # 4. LÓGICA DE CÁLCULO (O coração da operação)
-            # ... dentro da sua função processar_lote_csv ...
-            print(f"Buscando: {df_input.iloc[0]['servico']} | {df_input.iloc[0]['capacidade_mb']}MB")
-            print(f"Exemplo do banco: {df_db.iloc[0]['servico']} | {df_db.iloc[0]['capacidade_mb']}MB")
-
-            # 4. LÓGICA DE CÁLCULO ESTRICTA
+            # 4. LÓGICA DE CÁLCULO
             def calcular_custo(row):
-                # Filtro Base: Serviço (String) e Velocidade (Int)
-                # IMPORTANTE: Verifique se o nome do serviço no CSV é IDENTICO ao do banco
-                mask = (df_db['servico'] == row['servico']) & \
+                # Compara usando os campos normalizados
+                mask = (df_db['servico_norm'] == row['servico_norm']) & \
                        (df_db['capacidade_mb'] == int(row['capacidade_mb']))
                 
                 # Nível 1: Cidade (Normalizada)
@@ -320,21 +318,22 @@ def processar_lote_csv(request):
                 if not match_estado.empty:
                     return match_estado['valor_mensal'].mean()
                 
-                return None # Retorna None se não achar nada (evita 0.0 falso)
+                return None
 
             # Aplica o cálculo
             df_input['custo_medio'] = df_input.apply(calcular_custo, axis=1)
             
-            # REMOVER LINHAS VAZIAS: Garante que só o que foi enviado volte
+            # REMOVER LINHAS VAZIAS
             df_input = df_input.dropna(subset=['cidade', 'servico'])
             
-            # Preencher nulos com uma mensagem ou vazio para não ficar 0.0
+            # Tratamento de resultado final
             df_input['custo_medio'] = df_input['custo_medio'].fillna('Não encontrado')
+            
+            # Garante que a coluna velocidade seja exibida como inteiro no CSV
+            df_input['velocidade'] = df_input['capacidade_mb']
 
             # 5. EXPORTAÇÃO
-            # Exporta apenas as colunas solicitadas
             cols_export = ['cidade', 'uf', 'servico', 'velocidade', 'custo_medio']
-            # ... resto do código de resposta ...
             response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
             response['Content-Disposition'] = 'attachment; filename="resultado_precificacao.csv"'
             

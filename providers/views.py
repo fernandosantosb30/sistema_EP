@@ -567,12 +567,26 @@ def importar_cidades_csv(request, provedor_id):
     
     if request.method == 'POST' and request.FILES.get('arquivo_csv'):
         try:
-            csv_file = request.FILES['arquivo_csv']
+            arquivo = request.FILES['arquivo_csv']
             
-            # Leitura robusta
+            # 1. LEITURA ROBUSTA (Tratamento de codificação para qualquer caractere)
+            raw_data = arquivo.read()
+            conteudo = None
+            # Tenta decodificar usando encodings comuns de arquivos MS-DOS/Windows
+            for encoding in ['utf-8-sig', 'latin-1', 'cp1252', 'cp850']:
+                try:
+                    conteudo = raw_data.decode(encoding)
+                    break
+                except UnicodeDecodeError:
+                    continue
+            
+            if conteudo is None:
+                raise ValueError("Formato de arquivo incompatível. Tente salvar como UTF-8 ou Latin-1.")
+
+            # 2. CARREGA O CSV COM O PANDAS
+            # O io.StringIO transforma a string decodificada em um arquivo virtual legível pelo Pandas
             df = pd.read_csv(
-                csv_file, 
-                encoding='latin-1', 
+                io.StringIO(conteudo), 
                 sep=None, 
                 engine='python', 
                 on_bad_lines='skip'
@@ -582,15 +596,15 @@ def importar_cidades_csv(request, provedor_id):
             existentes = 0
             
             for _, row in df.iterrows():
-                # 1. Normaliza o nome da cidade
-                nome_cidade = normalizar_texto(row.iloc[0])
+                # 3. NORMALIZAÇÃO DE DADOS
+                # Garante que campos vazios ou nulos sejam tratados
+                cidade_bruta = str(row.iloc[0]) if pd.notnull(row.iloc[0]) else ""
+                nome_cidade = normalizar_texto(cidade_bruta)
                 
-                # 2. Normaliza a UF: pega apenas os 2 primeiros caracteres e garante que seja maiúsculo
-                uf_raw = str(row.iloc[1]) if len(row) > 1 else "XX"
+                uf_raw = str(row.iloc[1]) if len(row) > 1 and pd.notnull(row.iloc[1]) else "XX"
                 uf_cidade = uf_raw.strip().upper()[:2]
                 
                 if nome_cidade:
-                    # Busca ou cria normalizando a busca também
                     obj, criado = CidadeAtendida.objects.get_or_create(
                         provedor=provedor, 
                         nome=nome_cidade,

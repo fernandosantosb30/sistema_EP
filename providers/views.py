@@ -454,7 +454,7 @@ def importar_mapeamento(request):
             arquivo = request.FILES['arquivo_cidades']
             raw_data = arquivo.read()
             
-            # 1. Decodificação robusta para suportar padrões legados (MS-DOS)
+            # 1. Decodificação robusta
             conteudo = None
             for encoding in ['utf-8-sig', 'latin-1', 'cp850', 'cp1252']:
                 try:
@@ -466,22 +466,22 @@ def importar_mapeamento(request):
             if conteudo is None:
                 raise ValueError("Formato de arquivo não suportado. Tente salvar como UTF-8.")
 
-            # 2. Carregar e Limpar DataFrame
+            # 2. Carregar DataFrame
             df = pd.read_csv(io.StringIO(conteudo), sep=None, engine='python', on_bad_lines='skip')
             df.columns = [str(c).lower().strip() for c in df.columns]
             
-            if 'cidade' not in df.columns:
-                raise ValueError("A coluna 'cidade' não foi encontrada no arquivo.")
+            if 'cidade' not in df.columns or 'uf' not in df.columns:
+                raise ValueError("O arquivo deve conter as colunas 'cidade' e 'uf'.")
 
-            # Remove linhas vazias e duplicatas para não repetir cidades no resultado
-            cidades_entrada = df['cidade'].dropna().unique()
-            
-            # 3. Preparar dados do banco para busca em memória
+            # 3. Preparar dados do banco: Chave composta (cidade_norm, uf)
             todas_cidades = CidadeAtendida.objects.select_related('provedor').all()
-            mapa_cidades = {normalizar_texto(c.nome): c for c in todas_cidades}
-            lista_norm_banco = list(mapa_cidades.keys())
+            # Criamos um mapa usando tupla (cidade, uf) como chave
+            mapa_cidades = {
+                (normalizar_texto(c.nome), c.uf.strip().upper()): c 
+                for c in todas_cidades
+            }
 
-            # 4. Preparar resposta (utf-8-sig para o Excel reconhecer acentos)
+            # 4. Preparar resposta
             response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
             response['Content-Disposition'] = 'attachment; filename="mapeamento_filtrado.csv"'
             writer = csv.writer(response, delimiter=';')
@@ -489,16 +489,19 @@ def importar_mapeamento(request):
             
             encontrou_algum = False
             
-            # 5. Processamento único por cidade
-            for cidade_raw in cidades_entrada:
-                cidade_input = normalizar_texto(str(cidade_raw))
-                if not cidade_input: continue
+            # 5. Processamento linha por linha
+            for _, row in df.iterrows():
+                cidade_input = normalizar_texto(str(row['cidade']))
+                uf_input = str(row['uf']).strip().upper()[:2]
                 
-                # Busca inteligente (cutoff 0.7 evita falsos positivos)
-                matches = get_close_matches(cidade_input, lista_norm_banco, n=1, cutoff=0.7)
+                if not cidade_input or not uf_input: 
+                    continue
                 
-                if matches:
-                    cidade_obj = mapa_cidades[matches[0]]
+                # Busca exata usando a chave composta
+                chave_busca = (cidade_input, uf_input)
+                
+                if chave_busca in mapa_cidades:
+                    cidade_obj = mapa_cidades[chave_busca]
                     p = cidade_obj.provedor
                     contato = p.contatos.first()
                     
@@ -512,7 +515,7 @@ def importar_mapeamento(request):
                     encontrou_algum = True
             
             if not encontrou_algum:
-                messages.warning(request, "Nenhum mapeamento encontrado para as cidades informadas.")
+                messages.warning(request, "Nenhum mapeamento encontrado para as cidades/UF informadas.")
                 return redirect('consulta_provedores')
 
             return response
@@ -528,38 +531,50 @@ def exportar_mapeamento_csv(request, resultado):
     Exporta uma lista de provedores para CSV, tratando corretamente 
     a codificação para leitura no Excel (UTF-8 com BOM).
     """
-    # Define o content type com charset utf-8
     response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
     response['Content-Disposition'] = 'attachment; filename="mapeamento_parceiros.csv"'
 
-    # O 'utf-8-sig' acima já ajuda o Excel a reconhecer os caracteres especiais
     writer = csv.writer(response, delimiter=';')
     
     # Cabeçalho
     writer.writerow(['Cidade', 'UF', 'Parceiro', 'Contato', 'Trunk'])
 
+    # Otimização: prefetch_related evita múltiplas consultas ao banco (N+1 problema)
+    # Certifique-se de passar o 'resultado' já com prefetch, ex: resultado.prefetch_related('cidades', 'contatos')
+    
     for p in resultado:
-        # Acessa as cidades relacionadas ao provedor
         cidades = p.cidades.all()
         
-        # Se o provedor não tiver cidades, você pode decidir pular ou mostrar como N/A
+        # Pula provedores sem cidades cadastradas
         if not cidades:
             continue
             
-        for cidade in cidades:
-            # Obtém o contato de forma segura
-            contato_obj = p.contatos.first()
-            nome_contato = f"{contato_obj.nome} ({contato_obj.telefone})" if contato_obj else "N/A"
+        # Otimização: busca o contato uma única vez por provedor
+        contato_obj = p.contatos.first()
+        nome_contato = f"{contato_obj.nome} ({contato_obj.telefone})" if contato_obj else "N/A"
+        trunk_status = 'Sim' if getattr(p, 'parceiro_bst', False) else 'Não'
             
+        for cidade in cidades:
             writer.writerow([
                 cidade.nome,
-                cidade.uf,
+                cidade.uf.upper() if cidade.uf else "XX", # Garante formato consistente
                 p.nome,
                 nome_contato,
-                'Sim' if getattr(p, 'parceiro_bst', False) else 'Não'
+                trunk_status
             ])
             
     return response
+
+@login_required
+def exportar_provedores_view(request):
+    """
+    View responsável por buscar os dados otimizados e disparar o download do CSV.
+    """
+    # Busca todos os provedores otimizando o carregamento de contatos e cidades
+    provedores = Provedor.objects.prefetch_related('cidades', 'contatos').all()
+    
+    # Chama sua função de exportação que já criamos
+    return exportar_mapeamento_csv(request, provedores)
 
 @login_required
 def importar_cidades_csv(request, provedor_id):

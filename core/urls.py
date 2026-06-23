@@ -4,7 +4,6 @@ from django.contrib.auth import views as auth_views
 from django.views.generic.base import RedirectView
 from providers import views as providers_views
 from providers import views
-from . import views
 
 urlpatterns = [
     path('', RedirectView.as_view(url='/login/'), name='index'),

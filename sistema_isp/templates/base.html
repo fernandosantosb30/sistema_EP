@@ -153,6 +153,8 @@
                 <li class="nav-item"><a class="nav-link" href="{% url 'home' %}">Home</a></li>
                 <li class="nav-item"><a class="nav-link" href="{% url 'lista_provedores' %}">Listagem</a></li>
                 <li class="nav-item"><a class="nav-link" href="{% url 'consulta_provedores' %}">Consulta Mapeamento</a></li>
+                <li class="nav-item">
+                <a class="nav-link" href="{% url 'coleta_dados' %}">Extração Rápida</a></li>
                 
                 {% if user.is_superuser %}
                 <li class="nav-item">

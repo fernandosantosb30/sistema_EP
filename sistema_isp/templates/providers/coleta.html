@@ -1,19 +1,32 @@
-<div class="container mt-4">
-    <form method="POST" action="{% url 'coleta_dados' %}">
-        {% csrf_token %}
-        <h3>Coleta de Dados de Custo Médio</h3>
-        <p>Cole a mensagem abaixo para extração automática:</p>
-        
-        <textarea name="texto_colado" rows="10" class="form-control" placeholder="Cole aqui os dados do contrato..."></textarea>
-        
-        <br>
-        <button type="submit" class="btn btn-primary">Extrair e Armazenar</button>
-    </form>
+{% extends 'base.html' %}
 
-    {% if sucesso %}
-        <div style="background-color: #d4edda; border: 1px solid #c3e6cb; padding: 15px; margin-top: 20px;">
-            <h4 style="color: #155724;">Dados extraídos com sucesso!</h4>
-            <pre style="background: #f8f9fa; padding: 10px;">{{ dados }}</pre>
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card p-4">
+            <h2 class="text-center mb-4">Coleta Inteligente de Dados</h2>
+            <form method="POST" action="{% url 'coleta_dados' %}">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label class="form-label">Cole os dados do contrato aqui:</label>
+                    <textarea name="texto_colado" rows="10" class="form-control" required placeholder="Ex: Cidade: Santa Maria/RS, Provedor: X, Serviço: Fibra, 500MB..."></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary w-100">Extrair e Armazenar</button>
+            </form>
+
+            {% if sucesso %}
+                <div class="alert alert-success mt-4">
+                    <h4 class="alert-heading">Dados extraídos com sucesso!</h4>
+                    <pre class="bg-dark text-white p-3">{{ dados }}</pre>
+                </div>
+            {% endif %}
+            
+            {% if erro %}
+                <div class="alert alert-danger mt-4">
+                    {{ erro }}
+                </div>
+            {% endif %}
         </div>
-    {% endif %}
+    </div>
 </div>
+{% endblock %}

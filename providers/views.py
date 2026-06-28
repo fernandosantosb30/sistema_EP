@@ -682,4 +682,4 @@ Regras de Ouro:
             # Se der erro na IA ou na conversão do JSON, o sistema avisa o usuário
             return render(request, 'coleta.html', {'erro': f"Erro ao processar: {str(e)}"})
         
-    return render(request, 'coleta.html')
+    return render(request, 'providers/coleta.html')

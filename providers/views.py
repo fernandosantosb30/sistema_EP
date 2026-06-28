@@ -3,6 +3,7 @@ import csv
 import io
 import os
 import unicodedata
+import json
 
 # --- BIBLIOTECAS DE TERCEIROS ---
 import pandas as pd
@@ -10,6 +11,8 @@ from difflib import get_close_matches
 import difflib
 import logging
 logger = logging.getLogger(__name__)
+import openai
+from .models import InboxContrato
 
 # --- BIBLIOTECAS DJANGO ---
 from django import forms
@@ -566,17 +569,6 @@ def exportar_mapeamento_csv(request, resultado):
     return response
 
 @login_required
-def exportar_provedores_view(request):
-    """
-    View responsável por buscar os dados otimizados e disparar o download do CSV.
-    """
-    # Busca todos os provedores otimizando o carregamento de contatos e cidades
-    provedores = Provedor.objects.prefetch_related('cidades', 'contatos').all()
-    
-    # Chama sua função de exportação que já criamos
-    return exportar_mapeamento_csv(request, provedores)
-
-@login_required
 def importar_cidades_csv(request, provedor_id):
     provedor = get_object_or_404(Provedor, id=provedor_id)
     
@@ -637,3 +629,26 @@ def importar_cidades_csv(request, provedor_id):
             messages.error(request, f"Erro ao processar o arquivo: {str(e)}")
             
     return redirect('editar_provedor', pk=provedor.id)
+
+def interface_coleta(request):
+    if request.method == 'POST':
+        texto = request.POST.get('texto_colado')
+        
+        # Chamada à IA (substitua pela sua lógica de API)
+        prompt_sistema = """[COLE AQUI AQUELE PROMPT QUE DEFINIMOS ANTERIORMENTE]"""
+        
+        # Exemplo simplificado de chamada
+        resposta = openai.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "system", "content": prompt_sistema},
+                      {"role": "user", "content": texto}]
+        )
+        
+        conteudo_json = json.loads(resposta.choices[0].message.content)
+        
+        # Salva no repositório isolado
+        InboxContrato.objects.create(texto_original=texto, dados_extraidos=conteudo_json)
+        
+        return render(request, 'coleta.html', {'sucesso': True, 'dados': conteudo_json})
+        
+    return render(request, 'coleta.html')

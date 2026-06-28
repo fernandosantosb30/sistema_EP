@@ -83,3 +83,10 @@ class providers_contratocusto(models.Model):
     def __str__(self):
         return f"{self.cidade}/{self.uf} - {self.servico} ({self.valor_mensal})"
     
+class InboxContrato(models.Model):
+    texto_original = models.TextField()
+    dados_extraidos = models.JSONField() # Aqui guardamos o JSON que a IA devolver
+    data_criacao = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Coleta de {self.data_criacao}"

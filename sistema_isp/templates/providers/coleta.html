@@ -1,0 +1,14 @@
+<form method="POST">
+    {% csrf_token %}
+    <h3>Cole aqui os dados do contrato</h3>
+    <textarea name="texto_colado" rows="10" cols="50" placeholder="Ex: Cidade: Santa Maria/RS, Provedor: X, Serviço: Fibra, 500MB..."></textarea>
+    <br>
+    <button type="submit">Extrair e Armazenar</button>
+</form>
+
+{% if sucesso %}
+    <div style="background-color: #d4edda; padding: 10px;">
+        <p>Dados extraídos com sucesso!</p>
+        <pre>{{ dados }}</pre>
+    </div>
+{% endif %}

@@ -5,6 +5,7 @@ from django.views.generic.base import RedirectView
 from providers import views as providers_views
 from providers import views
 
+
 urlpatterns = [
     path('', RedirectView.as_view(url='/login/'), name='index'),
     
@@ -18,7 +19,9 @@ urlpatterns = [
     path('home/', providers_views.home_view, name='home'),
     
     # Home e Cadastro
-    path('cadastro/', providers_views.lista_provedores, name='cadastro'),    
+    path('cadastro/', providers_views.lista_provedores, name='cadastro'),   
+    
+    path('coleta-dados/', views.interface_coleta, name='coleta_dados'),
     
     # Gestão de Provedores
     path('provedores/', providers_views.lista_provedores, name='lista_provedores'), 

@@ -634,21 +634,52 @@ def interface_coleta(request):
     if request.method == 'POST':
         texto = request.POST.get('texto_colado')
         
-        # Chamada à IA (substitua pela sua lógica de API)
-        prompt_sistema = """[COLE AQUI AQUELE PROMPT QUE DEFINIMOS ANTERIORMENTE]"""
+        # O seu prompt oficial
+        prompt_sistema = """Você é um assistente especializado em extração de dados para provedores de internet. Sua tarefa é ler a mensagem do usuário e extrair exatamente as informações abaixo.
+Formato de saída obrigatório (JSON puro):
+{
+  "cidade": "nome da cidade",
+  "uf": "sigla do estado",
+  "parceiro": "nome do provedor",
+  "servico": "tipo de serviço",
+  "bloco_ip": "informação sobre IP",
+  "velocidade": "velocidade em Mbps (apenas o número)",
+  "interface": "Fibra, Rádio ou Misto",
+  "valor_mensal": "valor em formato numérico",
+  "valor_instalacao": "valor em formato numérico",
+  "prazo_contratual": "prazo em meses"
+}
+Regras de Ouro:
+1. Se uma informação não estiver presente no texto, retorne o campo como null.
+2. Ignore qualquer informação adicional, conversa ou poluição visual.
+3. Normalização: A 'interface' deve ser apenas 'Fibra', 'Rádio' ou 'Misto' baseada na descrição.
+4. Se o usuário digitar um texto longo, foque apenas em extrair os dados técnicos solicitados."""
         
-        # Exemplo simplificado de chamada
-        resposta = openai.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[{"role": "system", "content": prompt_sistema},
-                      {"role": "user", "content": texto}]
-        )
-        
-        conteudo_json = json.loads(resposta.choices[0].message.content)
-        
-        # Salva no repositório isolado
-        InboxContrato.objects.create(texto_original=texto, dados_extraidos=conteudo_json)
-        
-        return render(request, 'coleta.html', {'sucesso': True, 'dados': conteudo_json})
+        try:
+            # Chamada otimizada para garantir JSON
+            resposta = openai.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": prompt_sistema},
+                    {"role": "user", "content": texto}
+                ],
+                response_format={ "type": "json_object" } # Garante que a IA responda JSON
+            )
+            
+            # Extraindo o conteúdo
+            conteudo_str = resposta.choices[0].message.content
+            conteudo_json = json.loads(conteudo_str)
+            
+            # Salva no repositório isolado (Inbox)
+            InboxContrato.objects.create(
+                texto_original=texto, 
+                dados_extraidos=conteudo_json
+            )
+            
+            return render(request, 'coleta.html', {'sucesso': True, 'dados': conteudo_json})
+            
+        except Exception as e:
+            # Se der erro na IA ou na conversão do JSON, o sistema avisa o usuário
+            return render(request, 'coleta.html', {'erro': f"Erro ao processar: {str(e)}"})
         
     return render(request, 'coleta.html')

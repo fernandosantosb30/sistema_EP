@@ -38,33 +38,6 @@ from .models import providers_contratocusto
 from .forms import ProvedorForm, ContatoForm, CidadeForm
 from .models import Provedor, Contato, CidadeAtendida
 
-def sua_view(request):
-    if request.method == "POST":
-        texto_do_usuario = request.POST.get('texto_colado', '')
-        
-        try:
-            # 1. Configuração do Gemini
-            genai.configure(api_key=os.getenv("GOOGLE_API_KEY")) # Lembre-se de trocar o nome da variável no Render!
-            model = genai.GenerativeModel('gemini-1.5-flash')
-
-            # 2. Chamada da API
-            prompt = f"Extraia os dados deste texto e retorne apenas em formato JSON: {texto_do_usuario}"
-            resposta = model.generate_content(prompt)
-            
-            # 3. Processamento do JSON
-            conteudo_json = json.loads(resposta.text)
-            
-            # 4. Salvar no banco (Exemplo)
-            # InboxContrato.objects.create(texto_original=texto_do_usuario, dados_extraidos=conteudo_json)
-
-            return render(request, 'providers/coleta.html', {'sucesso': True, 'dados': conteudo_json})
-            
-        except Exception as e:
-            print(f"Erro na API: {e}")
-            return render(request, 'providers/coleta.html', {'erro': f"Erro ao processar: {str(e)}"})
-            
-    return render(request, 'providers/coleta.html')
-
 def buscar_custo(row):
     """
     Busca o custo médio usando o ORM do Django de forma segura.
@@ -671,12 +644,13 @@ def interface_coleta(request):
             genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
             model = genai.GenerativeModel('gemini-1.5-flash')
 
-            # Chamada da API
-            prompt = f"Extraia os dados deste texto e retorne apenas em formato JSON válido: {texto_do_usuario}"
+            # Chamada da API com instrução para garantir JSON puro
+            prompt = f"Extraia os dados deste texto e retorne APENAS um JSON válido, sem explicações adicionais: {texto_do_usuario}"
             resposta = model.generate_content(prompt)
             
-            # Processamento
-            dados_dict = json.loads(resposta.text)
+            # Limpeza do texto para garantir que o json.loads não quebre
+            json_text = resposta.text.replace('```json', '').replace('```', '').strip()
+            dados_dict = json.loads(json_text)
             
             # Salvar no banco
             InboxContrato.objects.create(
@@ -687,6 +661,7 @@ def interface_coleta(request):
             return render(request, template_name, {'sucesso': True, 'dados': dados_dict})
             
         except Exception as e:
+            print(f"Erro detalhado no processamento da IA: {e}") 
             return render(request, template_name, {'erro': f"Erro na IA: {str(e)}"})
             
     return render(request, template_name)

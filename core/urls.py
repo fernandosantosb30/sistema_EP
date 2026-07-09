@@ -22,6 +22,7 @@ urlpatterns = [
     path('cadastro/', providers_views.lista_provedores, name='cadastro'),   
     
     path('coleta-dados/', views.interface_coleta, name='coleta_dados'),
+    path('processar/<int:inbox_id>/', views.processar_item, name='processar_item'),
     
     # Gestão de Provedores
     path('provedores/', providers_views.lista_provedores, name='lista_provedores'), 

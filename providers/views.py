@@ -12,7 +12,7 @@ import difflib
 import logging
 logger = logging.getLogger(__name__)
 from openai import OpenAI
-from .models import InboxContrato
+from .models import InboxContrato, providers_contratocusto
 
 # --- BIBLIOTECAS DJANGO ---
 from django import forms
@@ -666,3 +666,56 @@ def interface_coleta(request):
             return render(request, 'coleta.html', {'erro': f"Erro ao processar: {str(e)}"})
         
     return render(request, 'providers/coleta.html')
+
+def processar_para_banco(request, inbox_id):
+    # 1. Busca o item no Inbox
+    item = get_object_or_404(InboxContrato, id=inbox_id)
+    dados = item.dados_extraidos
+    
+    # 2. Cria o registro no modelo oficial
+    providers_contratocusto.objects.create(
+        cidade=dados.get('cidade'),
+        uf=dados.get('uf'),
+        servico=dados.get('servico'),
+        ip_fixo=dados.get('bloco_ip'),
+        valor_mensal=dados.get('valor_mensal'),
+        capacidade_mb=dados.get('capacidade_mb'), # Ajustado conforme seu novo prompt
+        vigencia_meses=dados.get('vigencia_meses')
+    )
+    
+    # 3. Opcional: Marcar como processado ou deletar do Inbox
+    item.delete() 
+    
+    return redirect('lista_de_pendentes')
+
+def lista_pendentes(request):
+    # Lista tudo que está na fila
+    itens = InboxContrato.objects.all().order_by('-data_criacao')
+    return render(request, 'lista_pendentes.html', {'itens': itens})
+
+def processar_item(request, inbox_id):
+    # 1. Recupera o item pendente
+    item = get_object_or_404(InboxContrato, id=inbox_id)
+    dados = item.dados_extraidos
+    
+    try:
+        # 2. Cria o registro no banco oficial
+        # Garantimos o uso do .get() para evitar erros caso um campo esteja faltando
+        providers_contratocusto.objects.create(
+            cidade=dados.get('cidade', 'Não informada'),
+            uf=dados.get('uf', 'XX'),
+            servico=dados.get('servico', 'Não informado'),
+            ip_fixo=dados.get('ip_fixo'),
+            valor_mensal=dados.get('valor_mensal', 0),
+            capacidade_mb=dados.get('capacidade_mb', 0),
+            vigencia_meses=dados.get('vigencia_meses', 0)
+        )
+        
+        # 3. Se deu certo, removemos da fila (Inbox)
+        item.delete()
+        messages.success(request, "Contrato processado com sucesso para o banco oficial!")
+        
+    except Exception as e:
+        messages.error(request, f"Erro ao processar: {str(e)}")
+        
+    return redirect('lista_pendentes')

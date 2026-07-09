@@ -11,7 +11,6 @@ from difflib import get_close_matches
 import difflib
 import logging
 logger = logging.getLogger(__name__)
-from openai import OpenAI
 from .models import InboxContrato, providers_contratocusto
 import google.generativeai as genai
 
@@ -662,40 +661,34 @@ def interface_coleta(request):
     template_name = 'providers/coleta.html'
     
     if request.method == "POST":
-        # 1. Ajustado para 'texto_colado' conforme o seu HTML
-        texto_do_usuario = request.POST.get('texto_colado', '')
+        texto_do_usuario = request.POST.get('texto_colado', '').strip()
         
         if not texto_do_usuario:
-            return render(request, 'coleta.html', {'erro': 'Cole algum texto primeiro!'})
+            return render(request, template_name, {'erro': 'Cole algum texto primeiro!'})
 
         try:
-            client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-            
-            mensagens = [
-                {"role": "system", "content": "Você é um especialista. Responda apenas com JSON."},
-                {"role": "user", "content": texto_do_usuario}
-            ]
+            # Configuração do Gemini
+            genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+            model = genai.GenerativeModel('gemini-1.5-flash')
 
-            resposta = client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=mensagens, 
-                response_format={"type": "json_object"}
-            )
+            # Chamada da API
+            prompt = f"Extraia os dados deste texto e retorne apenas em formato JSON válido: {texto_do_usuario}"
+            resposta = model.generate_content(prompt)
             
-            # Extrai o conteúdo e salva no seu modelo (InboxContrato)
-            conteudo_json = resposta.choices[0].message.content
+            # Processamento
+            dados_dict = json.loads(resposta.text)
             
-            # Salvar no banco (Exemplo rápido)
+            # Salvar no banco
             InboxContrato.objects.create(
                 texto_original=texto_do_usuario,
-                dados_extraidos=json.loads(conteudo_json)
+                dados_extraidos=dados_dict
             )
 
-            return render(request, 'coleta.html', {'sucesso': True, 'dados': conteudo_json})
+            return render(request, template_name, {'sucesso': True, 'dados': dados_dict})
             
         except Exception as e:
-            return render(request, 'coleta.html', {'erro': f"Erro na IA: {str(e)}"})
-        
+            return render(request, template_name, {'erro': f"Erro na IA: {str(e)}"})
+            
     return render(request, template_name)
 
 def processar_para_banco(request, inbox_id):

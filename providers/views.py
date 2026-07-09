@@ -38,7 +38,11 @@ from .models import providers_contratocusto
 from .forms import ProvedorForm, ContatoForm, CidadeForm
 from .models import Provedor, Contato, CidadeAtendida
 
-client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+resposta = client.chat.completions.create(
+    model="gpt-4o-mini", # Use um modelo disponível na sua conta
+    messages=[...]
+)
 
 def buscar_custo(row):
     """

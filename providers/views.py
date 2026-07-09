@@ -38,11 +38,35 @@ from .models import providers_contratocusto
 from .forms import ProvedorForm, ContatoForm, CidadeForm
 from .models import Provedor, Contato, CidadeAtendida
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-resposta = client.chat.completions.create(
-    model="gpt-4o-mini", # Use um modelo disponível na sua conta
-    messages=[...]
-)
+def sua_view(request):
+    # 1. Certifique-se de que o método seja POST (quando o formulário é enviado)
+    if request.method == "POST":
+        # Captura o texto do formulário (verifique se 'campo_texto' é o name correto no seu HTML)
+        texto_do_usuario = request.POST.get('campo_texto', '')
+        
+        # 2. Inicialize o cliente aqui ou fora da função
+        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+        # 3. Defina a lista de mensagens corretamente indentada
+        mensagens = [
+            {"role": "system", "content": "Você é um assistente especializado. Responda sempre em formato JSON."},
+            {"role": "user", "content": texto_do_usuario}
+        ]
+
+        # 4. Chamada da API
+        try:
+            resposta = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=mensagens, 
+                response_format={"type": "json_object"}
+            )
+            # Aqui você processaria o JSON da resposta...
+            
+        except Exception as e:
+            # Em caso de erro, você pode imprimir para o log do Render
+            print(f"Erro na API: {e}")
+            
+    return render(request, 'providers/coleta.html')
 
 def buscar_custo(row):
     """
@@ -637,37 +661,42 @@ def importar_cidades_csv(request, provedor_id):
     return redirect('editar_provedor', pk=provedor.id)
 
 def interface_coleta(request):
-    if request.method == 'POST':
-        texto = request.POST.get('texto_colado')
+    if request.method == "POST":
+        # 1. Ajustado para 'texto_colado' conforme o seu HTML
+        texto_do_usuario = request.POST.get('texto_colado', '')
         
-        prompt_sistema = """Você é um assistente especializado em extração de dados para provedores de internet...""" 
-        # (seu prompt continua igual)
-        
+        if not texto_do_usuario:
+            return render(request, 'coleta.html', {'erro': 'Cole algum texto primeiro!'})
+
         try:
-            # Note o uso de 'client.chat.completions.create'
+            client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+            
+            mensagens = [
+                {"role": "system", "content": "Você é um especialista. Responda apenas com JSON."},
+                {"role": "user", "content": texto_do_usuario}
+            ]
+
             resposta = client.chat.completions.create(
                 model="gpt-4o-mini",
-                messages=[
-                    {"role": "system", "content": prompt_sistema},
-                    {"role": "user", "content": texto}
-                ],
-                response_format={ "type": "json_object" }
+                messages=mensagens, 
+                response_format={"type": "json_object"}
             )
             
-            conteudo_str = resposta.choices[0].message.content
-            conteudo_json = json.loads(conteudo_str)
+            # Extrai o conteúdo e salva no seu modelo (InboxContrato)
+            conteudo_json = resposta.choices[0].message.content
             
-            # Salvando na área de espera (Inbox)
+            # Salvar no banco (Exemplo rápido)
+            from .models import InboxContrato
+            import json
             InboxContrato.objects.create(
-                texto_original=texto, 
-                dados_extraidos=conteudo_json
+                texto_original=texto_do_usuario,
+                dados_extraidos=json.loads(conteudo_json)
             )
-            
+
             return render(request, 'coleta.html', {'sucesso': True, 'dados': conteudo_json})
             
         except Exception as e:
-            # O log mostrará o erro real caso a chave não esteja configurada
-            return render(request, 'coleta.html', {'erro': f"Erro ao processar: {str(e)}"})
+            return render(request, 'coleta.html', {'erro': f"Erro na IA: {str(e)}"})
         
     return render(request, 'providers/coleta.html')
 

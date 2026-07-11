@@ -66,22 +66,19 @@ class Contato(models.Model):
     class Meta:
         app_label = 'providers'
        
-class providers_contratocusto(models.Model):
-    # Dados técnicos e contratuais
+class ContratoCusto(models.Model):
     cidade = models.CharField(max_length=100)
     uf = models.CharField(max_length=2)
-    servico = models.CharField(max_length=100)
-    ip_fixo = models.CharField(max_length=50, blank=True, null=True)
-    valor_mensal = models.DecimalField(max_digits=10, decimal_places=2)
-    capacidade_mb = models.IntegerField(help_text="Velocidade em MB")
-    vigencia_meses = models.IntegerField()
-    
+    velocidade = models.CharField(max_length=50) # Removi o db_column
+    tipo_servico = models.CharField(max_length=100) # Removi o db_column
+    meio_fisico = models.CharField(max_length=50)
+    mensal = models.DecimalField(max_digits=10, decimal_places=2) # Removi o db_column
+
     class Meta:
         db_table = 'providers_contratocusto'
-        app_label = 'providers'
 
     def __str__(self):
-        return f"{self.cidade}/{self.uf} - {self.servico} ({self.valor_mensal})"
+        return f"{self.cidade}/{self.uf} - {self.velocidade}"
     
 class InboxContrato(models.Model):
     texto_original = models.TextField()

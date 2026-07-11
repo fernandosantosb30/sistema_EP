@@ -11,8 +11,6 @@ from difflib import get_close_matches
 import difflib
 import logging
 logger = logging.getLogger(__name__)
-from .models import InboxContrato, providers_contratocusto
-import google.generativeai as genai
 
 # --- BIBLIOTECAS DJANGO ---
 from django import forms
@@ -32,32 +30,31 @@ from django.views.generic import ListView
 
 # --- IMPORTAÇÃO DA FUNÇÃO NORMALIZAR_TEXTO ---
 from .utils import normalizar_texto 
-from .models import providers_contratocusto
 
 # --- MODELOS E FORMULÁRIOS LOCAIS ---
 from .forms import ProvedorForm, ContatoForm, CidadeForm
-from .models import Provedor, Contato, CidadeAtendida
+from .models import InboxContrato, ContratoCusto, Provedor, Contato, CidadeAtendida
 
 def buscar_custo(row):
     """
     Busca o custo médio usando o ORM do Django de forma segura.
+    Atualizado para a nova estrutura do modelo ContratoCusto.
     """
     try:
-        # A busca retorna None se nenhum registro atender aos filtros
-        custo = providers_contratocusto.objects.filter(
-            cidade__iexact=row['cidade_norm'],
-            uf__iexact=row['uf'],
-            servico__iexact=row['servico'],
-            capacidade_mb=row['capacidade_mb']
+        # Usamos ContratoCusto (Classe) e os novos nomes dos campos
+        custo = ContratoCusto.objects.filter(
+            cidade__iexact=row.get('cidade_norm'),
+            uf__iexact=row.get('uf'),
+            tipo_servico__iexact=row.get('servico'),
+            velocidade=row.get('capacidade_mb')
         ).first()
         
-        # Verificação de segurança: se custo for None, retorna 0.0
-        if custo and custo.valor_mensal:
-            return float(custo.valor_mensal)
+        # Verificação de segurança utilizando o campo 'mensal'
+        if custo and custo.mensal:
+            return float(custo.mensal)
         return 0.0
         
     except Exception as e:
-        # O log é importante para identificar se houve problema de conexão ou tipo
         logger.error(f"Erro ao buscar custo para {row.get('cidade')}: {e}")
         return 0.0
 
@@ -177,43 +174,43 @@ def consulta_provedores(request):
 @login_required
 def processar_custo_medio(request):
     try:
-        queryset = providers_contratocusto.objects.all().values(
-            'cidade', 'uf', 'servico', 'valor_mensal', 'capacidade_mb', 'vigencia_meses', 'ip_fixo'
+        queryset = ContratoCusto.objects.all().values(
+            'cidade', 'uf', 'tipo_servico', 'mensal', 'velocidade', 'meio_fisico'
         )
         df = pd.DataFrame(list(queryset))
         
-        if not df.empty:
-            df['valor_mensal'] = pd.to_numeric(df['valor_mensal'], errors='coerce')
-        else:
-            # Em caso de banco vazio, se for AJAX retorna erro, senão renderiza vazio
-            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
-                return JsonResponse({'error': 'Nenhum contrato encontrado.'}, status=404)
-            df = pd.DataFrame(columns=['cidade', 'uf', 'servico', 'valor_mensal', 'capacidade_mb', 'vigencia_meses', 'ip_fixo', 'interface'])
+        if df.empty:
+            return render(request, 'providers/custo_medio_integrado.html', {'dados': {'custo_medio': 0, 'quantidade_contratos': 0}})
 
-        # PREPARAÇÃO E NORMALIZAÇÃO
-        def extrair_interface(texto):
-            norm = normalizar_texto(texto) if texto else ""
-            if 'fibra' in norm: return 'Fibra'
-            if 'wireless' in norm or 'radio' in norm: return 'Rádio'
-            return 'Misto'
-
-        df['interface'] = df['servico'].apply(extrair_interface)
+        # NORMALIZAÇÃO DE TODAS AS COLUNAS TEXTUAIS
+        df['mensal'] = pd.to_numeric(df['mensal'], errors='coerce')
         df['cidade_norm'] = df['cidade'].apply(lambda x: normalizar_texto(x) if x else "")
+        df['tipo_servico_norm'] = df['tipo_servico'].apply(lambda x: normalizar_texto(x) if x else "")
+        df['meio_fisico_norm'] = df['meio_fisico'].apply(lambda x: normalizar_texto(x) if x else "")
+        df['velocidade_norm'] = df['velocidade'].apply(lambda x: normalizar_texto(x) if x else "")
         df['uf'] = df['uf'].astype(str).str.upper().str.strip()
 
-        # LÓGICA DE FILTROS
+        # LÓGICA DE FILTROS COM NORMALIZAÇÃO
         mask = pd.Series(True, index=df.index)
-        if request.GET.get('servico'): mask &= (df['servico'] == request.GET.get('servico'))
-        if request.GET.get('interface'): mask &= (df['interface'] == request.GET.get('interface'))
-        if request.GET.get('ip_fixo'): mask &= (df['ip_fixo'].astype(str) == request.GET.get('ip_fixo'))
         
-        try:
-            if request.GET.get('capacidade'): mask &= (df['capacidade_mb'] == int(request.GET.get('capacidade')))
-            if request.GET.get('vigencia'): mask &= (df['vigencia_meses'] == int(request.GET.get('vigencia')))
-        except ValueError:
-            return JsonResponse({'error': 'Parâmetros numéricos inválidos.'}, status=400)
+        # Filtro de Serviço
+        if request.GET.get('servico'):
+            servico_req = normalizar_texto(request.GET.get('servico'))
+            mask &= (df['tipo_servico_norm'] == servico_req)
+            
+        # Filtro de Meio Físico
+        if request.GET.get('meio_fisico'):
+            meio_req = normalizar_texto(request.GET.get('meio_fisico'))
+            mask &= (df['meio_fisico_norm'] == meio_req)
+            
+        # Filtro de Velocidade
+        if request.GET.get('velocidade'):
+            vel_req = normalizar_texto(request.GET.get('velocidade'))
+            mask &= (df['velocidade_norm'] == vel_req)
 
         df_base = df[mask]
+        
+        # Lógica de Cidade e UF
         cidade_req = normalizar_texto(request.GET.get('cidade')) if request.GET.get('cidade') else None
         uf_req = request.GET.get('uf', '').upper().strip()
 
@@ -234,10 +231,8 @@ def processar_custo_medio(request):
             df_final = df_base
             nivel = 'Geral'
 
-        custo_medio = 0.00
-        if not df_final.empty and 'valor_mensal' in df_final.columns:
-            media = df_final['valor_mensal'].mean()
-            custo_medio = round(float(media), 2) if pd.notnull(media) else 0.00
+        # Cálculo
+        custo_medio = round(float(df_final['mensal'].mean()), 2) if not df_final.empty and pd.notnull(df_final['mensal'].mean()) else 0.00
 
         dados_resposta = {
             'custo_medio': custo_medio,
@@ -245,22 +240,20 @@ def processar_custo_medio(request):
             'nivel': nivel
         }
 
-        # RETORNO CONDICIONAL
         if request.headers.get('x-requested-with') == 'XMLHttpRequest':
             return JsonResponse(dados_resposta)
 
         context = {
             'dados': dados_resposta,
-            'servicos': sorted(df['servico'].dropna().unique()),
-            'vigencias': sorted(df['vigencia_meses'].dropna().unique()),
-            'ips_fixos': sorted([str(ip) for ip in df['ip_fixo'].dropna().unique()]),
-            'interfaces': sorted(df['interface'].unique())
+            'servicos': sorted(df['tipo_servico'].dropna().unique()),
+            'velocidades': sorted(df['velocidade'].dropna().unique()),
+            'meios_fisicos': sorted(df['meio_fisico'].dropna().unique())
         }
         return render(request, 'providers/custo_medio_integrado.html', context)
 
     except Exception as e:
-        logger.error(f"Erro no processamento de custo: {e}")
-        return JsonResponse({'error': f'Erro interno: {str(e)}'}, status=500)
+        logger.error(f"Erro no processamento: {e}")
+        return JsonResponse({'error': str(e)}, status=500)
 
 # --- Nova Função de Processamento em Lote (CSV) ---
 @login_required
@@ -285,58 +278,54 @@ def processar_lote_csv(request):
             df_input = pd.read_csv(io.StringIO(conteudo), sep=None, engine='python', on_bad_lines='skip')
             df_input.columns = [c.lower().strip() for c in df_input.columns]
             
-            # 3. CARREGA BASE DE DADOS DO DJANGO PARA MEMÓRIA
-            contratos_db = providers_contratocusto.objects.all().values(
-                'cidade', 'uf', 'servico', 'valor_mensal', 'capacidade_mb'
+            # 3. CARREGA BASE DE DADOS DO DJANGO
+            # Atualizado para ContratoCusto e novos nomes de colunas
+            contratos_db = ContratoCusto.objects.all().values(
+                'cidade', 'uf', 'tipo_servico', 'mensal', 'velocidade', 'meio_fisico'
             )
             df_db = pd.DataFrame(list(contratos_db))
             
-            # Prepara base do banco com normalização de serviço
+            # Normalização do Banco
             df_db['cidade_norm'] = df_db['cidade'].apply(lambda x: normalizar_texto(x) if x else "")
-            df_db['servico_norm'] = df_db['servico'].apply(lambda x: normalizar_texto(x) if x else "")
+            df_db['servico_norm'] = df_db['tipo_servico'].apply(lambda x: normalizar_texto(x) if x else "")
             df_db['uf'] = df_db['uf'].astype(str).str.upper().str.strip()
-            df_db['valor_mensal'] = pd.to_numeric(df_db['valor_mensal'], errors='coerce')
+            df_db['mensal'] = pd.to_numeric(df_db['mensal'], errors='coerce')
 
-            # Prepara entrada do usuário
+            # Prepara entrada do usuário (ajuste para os campos do CSV)
             df_input['cidade_norm'] = df_input['cidade'].apply(lambda x: normalizar_texto(x) if x else "")
-            df_input['servico_norm'] = df_input['servico'].apply(lambda x: normalizar_texto(x) if x else "")
+            df_input['servico_norm'] = df_input['tipo_servico'].apply(lambda x: normalizar_texto(x) if x else "")
             df_input['uf'] = df_input['uf'].astype(str).str.upper().str.strip()
             
-            # CORREÇÃO VELOCIDADE: extrai número e força tipo inteiro
-            df_input['capacidade_mb'] = pd.to_numeric(df_input['velocidade'].replace(r'\D', '', regex=True), errors='coerce').fillna(0).astype(int)
+            # Garante que a velocidade seja tratada como string para comparação
+            df_input['velocidade_str'] = df_input['velocidade'].astype(str).str.strip()
+            df_db['velocidade_str'] = df_db['velocidade'].astype(str).str.strip()
 
             # 4. LÓGICA DE CÁLCULO
             def calcular_custo(row):
-                # Compara usando os campos normalizados
+                # Filtro comum: Serviço e Velocidade
                 mask = (df_db['servico_norm'] == row['servico_norm']) & \
-                       (df_db['capacidade_mb'] == int(row['capacidade_mb']))
+                       (df_db['velocidade_str'] == row['velocidade_str'])
                 
-                # Nível 1: Cidade (Normalizada)
+                # Nível 1: Cidade
                 match_cidade = df_db[mask & (df_db['cidade_norm'] == row['cidade_norm'])]
                 if not match_cidade.empty:
-                    return match_cidade['valor_mensal'].mean()
+                    return match_cidade['mensal'].mean()
                 
                 # Nível 2: Estado
                 match_estado = df_db[mask & (df_db['uf'] == row['uf'])]
                 if not match_estado.empty:
-                    return match_estado['valor_mensal'].mean()
+                    return match_estado['mensal'].mean()
                 
                 return None
 
-            # Aplica o cálculo
             df_input['custo_medio'] = df_input.apply(calcular_custo, axis=1)
             
-            # REMOVER LINHAS VAZIAS
-            df_input = df_input.dropna(subset=['cidade', 'servico'])
-            
-            # Tratamento de resultado final
+            # Tratamento final
+            df_input = df_input.dropna(subset=['cidade', 'tipo_servico'])
             df_input['custo_medio'] = df_input['custo_medio'].fillna('Não encontrado')
             
-            # Garante que a coluna velocidade seja exibida como inteiro no CSV
-            df_input['velocidade'] = df_input['capacidade_mb']
-
             # 5. EXPORTAÇÃO
-            cols_export = ['cidade', 'uf', 'servico', 'velocidade', 'custo_medio']
+            cols_export = ['cidade', 'uf', 'tipo_servico', 'velocidade', 'custo_medio']
             response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
             response['Content-Disposition'] = 'attachment; filename="resultado_precificacao.csv"'
             
@@ -630,91 +619,25 @@ def importar_cidades_csv(request, provedor_id):
             
     return redirect('editar_provedor', pk=provedor.id)
 
+@login_required
 def interface_coleta(request):
-    template_name = 'providers/coleta.html'
-    
-    if request.method == "POST":
-        texto_do_usuario = request.POST.get('texto_colado', '').strip()
-        
-        if not texto_do_usuario:
-            return render(request, template_name, {'erro': 'Cole algum texto primeiro!'})
+    """
+    Renderiza a interface para coleta de novos contratos.
+    """
+    context = {
+        'titulo': 'Coleta de Dados de Contratos',
+    }
+    return render(request, 'providers/interface_coleta.html', context)
 
-        try:
-            # Configuração do Gemini
-            genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
-            model = genai.GenerativeModel('gemini-1.5-flash')
-
-            # Chamada da API com instrução para garantir JSON puro
-            prompt = f"Extraia os dados deste texto e retorne APENAS um JSON válido, sem explicações adicionais: {texto_do_usuario}"
-            resposta = model.generate_content(prompt)
-            
-            # Limpeza do texto para garantir que o json.loads não quebre
-            json_text = resposta.text.replace('```json', '').replace('```', '').strip()
-            dados_dict = json.loads(json_text)
-            
-            # Salvar no banco
-            InboxContrato.objects.create(
-                texto_original=texto_do_usuario,
-                dados_extraidos=dados_dict
-            )
-
-            return render(request, template_name, {'sucesso': True, 'dados': dados_dict})
-            
-        except Exception as e:
-            print(f"Erro detalhado no processamento da IA: {e}") 
-            return render(request, template_name, {'erro': f"Erro na IA: {str(e)}"})
-            
-    return render(request, template_name)
-
-def processar_para_banco(request, inbox_id):
-    # 1. Busca o item no Inbox
-    item = get_object_or_404(InboxContrato, id=inbox_id)
-    dados = item.dados_extraidos
-    
-    # 2. Cria o registro no modelo oficial
-    providers_contratocusto.objects.create(
-        cidade=dados.get('cidade'),
-        uf=dados.get('uf'),
-        servico=dados.get('servico'),
-        ip_fixo=dados.get('bloco_ip'),
-        valor_mensal=dados.get('valor_mensal'),
-        capacidade_mb=dados.get('capacidade_mb'), # Ajustado conforme seu novo prompt
-        vigencia_meses=dados.get('vigencia_meses')
-    )
-    
-    # 3. Opcional: Marcar como processado ou deletar do Inbox
-    item.delete() 
-    
-    return redirect('lista_de_pendentes')
-
-def lista_pendentes(request):
-    # Lista tudo que está na fila
-    itens = InboxContrato.objects.all().order_by('-data_criacao')
-    return render(request, 'lista_pendentes.html', {'itens': itens})
-
+@login_required
 def processar_item(request, inbox_id):
-    # 1. Recupera o item pendente
+    """
+    Processa um item da InboxContrato.
+    """
     item = get_object_or_404(InboxContrato, id=inbox_id)
-    dados = item.dados_extraidos
     
-    try:
-        # 2. Cria o registro no banco oficial
-        # Garantimos o uso do .get() para evitar erros caso um campo esteja faltando
-        providers_contratocusto.objects.create(
-            cidade=dados.get('cidade', 'Não informada'),
-            uf=dados.get('uf', 'XX'),
-            servico=dados.get('servico', 'Não informado'),
-            ip_fixo=dados.get('ip_fixo'),
-            valor_mensal=dados.get('valor_mensal', 0),
-            capacidade_mb=dados.get('capacidade_mb', 0),
-            vigencia_meses=dados.get('vigencia_meses', 0)
-        )
-        
-        # 3. Se deu certo, removemos da fila (Inbox)
-        item.delete()
-        messages.success(request, "Contrato processado com sucesso para o banco oficial!")
-        
-    except Exception as e:
-        messages.error(request, f"Erro ao processar: {str(e)}")
-        
-    return redirect('lista_pendentes')
+    # Adicione aqui sua lógica de processamento (ex: chamar a IA, salvar no ContratoCusto, etc.)
+    # ...
+    
+    # Exemplo de redirecionamento após processar
+    return redirect('coleta_dados') # Ajuste para a URL desejada

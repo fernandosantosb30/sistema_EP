@@ -1,5 +1,4 @@
 import os
-import dj_database_url
 """
 Django settings for core project.
 
@@ -15,7 +14,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 # Quick-start development settings - unsuitable for production
@@ -83,21 +82,27 @@ WSGI_APPLICATION = 'core.wsgi.application'
 
 db_url = os.environ.get('DATABASE_URL')
 
-if 'DATABASE_URL' in os.environ:
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if DATABASE_URL:
     import dj_database_url
+
     DATABASES = {
-        'default': dj_database_url.config(conn_max_age=600, ssl_require=True)
+        "default": dj_database_url.parse(
+            DATABASE_URL,
+            conn_max_age=600,
+            ssl_require=True,
+        )
     }
 else:
-    # Configuração para o seu PC local
     DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': 'sistema_isp_db',
-            'USER': 'postgres',
-            'PASSWORD': 'GGwaopq@1',
-            'HOST': 'localhost',
-            'PORT': '5432',
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": "sistema_isp_db",
+            "USER": "postgres",
+            "PASSWORD": "SUA_SENHA_LOCAL",
+            "HOST": "localhost",
+            "PORT": "5432",
         }
     }
 

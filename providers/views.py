@@ -4,6 +4,7 @@ import io
 import os
 import unicodedata
 import json
+import re
 
 # --- BIBLIOTECAS DE TERCEIROS ---
 import pandas as pd
@@ -171,81 +172,242 @@ def consulta_provedores(request):
     
     return render(request, 'providers/consulta.html', context)
 
+
+
 @login_required
 def processar_custo_medio(request):
     try:
-        # Carrega dados
-        queryset = ContratoCusto.objects.all().values(
-            'cidade', 'uf', 'tipo_servico', 'mensal', 'velocidade', 'meio_fisico'
+
+        # ==========================================================
+        # CARREGA DADOS DO BANCO
+        # ==========================================================
+        queryset = ContratoCusto.objects.values(
+            "cidade",
+            "uf",
+            "tipo_servico",
+            "mensal",
+            "velocidade",
+            "meio_fisico"
         )
-        df = pd.DataFrame(list(queryset))
-        
+
+        df = pd.DataFrame(queryset)
+
         if df.empty:
-            return render(request, 'providers/custo_medio_integrado.html', 
-                          {'dados': {'custo_medio': 0, 'quantidade_contratos': 0}})
 
-        # NORMALIZAÇÃO (Garante que tudo fique minúsculo e sem acentos)
-        df['mensal'] = pd.to_numeric(df['mensal'], errors='coerce').fillna(0.0)
-        df['cidade_norm'] = df['cidade'].apply(lambda x: normalizar_texto(x) if x else "")
-        df['tipo_servico_norm'] = df['tipo_servico'].apply(lambda x: normalizar_texto(x) if x else "")
-        df['meio_fisico_norm'] = df['meio_fisico'].apply(lambda x: normalizar_texto(x) if x else "")
-        df['velocidade_norm'] = df['velocidade'].astype(str).apply(lambda x: normalizar_texto(x) if x else "")
-        df['uf'] = df['uf'].astype(str).str.upper().str.strip()
+            dados = {
+                "custo_medio": 0,
+                "quantidade_contratos": 0,
+                "nivel": "Sem dados"
+            }
 
-        # APLICAÇÃO DOS FILTROS (Lógica centralizada)
+            if request.headers.get("x-requested-with") == "XMLHttpRequest":
+                return JsonResponse(dados)
+
+            return render(
+                request,
+                "providers/custo_medio_integrado.html",
+                {
+                    "dados": dados,
+                    "servicos": [],
+                    "velocidades": [],
+                    "meios_fisicos": []
+                }
+            )
+
+        # ==========================================================
+        # NORMALIZAÇÃO DOS DADOS
+        # ==========================================================
+
+        df["cidade"] = (
+            df["cidade"]
+            .fillna("")
+            .astype(str)
+            .str.strip()
+        )
+
+        df["uf"] = (
+            df["uf"]
+            .fillna("")
+            .astype(str)
+            .str.upper()
+            .str.strip()
+        )
+
+        df["tipo_servico"] = (
+            df["tipo_servico"]
+            .fillna("")
+            .astype(str)
+            .str.strip()
+        )
+
+        df["meio_fisico"] = (
+            df["meio_fisico"]
+            .fillna("")
+            .astype(str)
+            .str.strip()
+        )
+
+        df["velocidade"] = (
+            df["velocidade"]
+            .fillna("")
+            .astype(str)
+            .str.strip()
+        )
+
+        df["mensal"] = pd.to_numeric(
+            df["mensal"],
+            errors="coerce"
+        ).fillna(0)
+
+        # ==========================================================
+        # COLUNAS NORMALIZADAS
+        # ==========================================================
+
+        df["cidade_norm"] = df["cidade"].apply(normalizar_texto)
+
+        df["tipo_servico_norm"] = df["tipo_servico"].apply(normalizar_texto)
+
+        df["meio_fisico_norm"] = df["meio_fisico"].apply(normalizar_texto)
+
+        # pega apenas o número da velocidade
+        def limpar_velocidade(valor):
+
+            numeros = re.findall(r"\d+", str(valor))
+
+            if numeros:
+                return numeros[0]
+
+            return ""
+
+        df["velocidade_norm"] = df["velocidade"].apply(limpar_velocidade)
+
+        # ==========================================================
+        # LOGS
+        # ==========================================================
+
+        print("=" * 60)
+        print("TOTAL REGISTROS:", len(df))
+        print("GET:", request.GET)
+        print("=" * 60)
+
+        # ==========================================================
+        # FILTROS
+        # ==========================================================
+
         mask = pd.Series(True, index=df.index)
-        
-        if request.GET.get('servico'):
-            mask &= (df['tipo_servico_norm'] == normalizar_texto(request.GET.get('servico')))
-            
-        if request.GET.get('meio_fisico'):
-            mask &= (df['meio_fisico_norm'] == normalizar_texto(request.GET.get('meio_fisico')))
-            
-        if request.GET.get('velocidade'):
-            mask &= (df['velocidade_norm'] == normalizar_texto(request.GET.get('velocidade')))
+
+        servico = request.GET.get("servico", "").strip()
+
+        if servico:
+            mask &= (
+                df["tipo_servico_norm"] ==
+                normalizar_texto(servico)
+            )
+
+        meio = request.GET.get("meio_fisico", "").strip()
+
+        if meio:
+            mask &= (
+                df["meio_fisico_norm"] ==
+                normalizar_texto(meio)
+            )
+
+        velocidade = request.GET.get("velocidade", "").strip()
+
+        if velocidade:
+            mask &= (
+                df["velocidade_norm"] ==
+                limpar_velocidade(velocidade)
+            )
 
         df_base = df[mask]
-        
-        # LÓGICA GEOGRÁFICA
-        cidade_req = request.GET.get('cidade')
-        uf_req = request.GET.get('uf', '').upper().strip()
+
+        print("Após filtros:", len(df_base))
+
+        # ==========================================================
+        # FILTRO GEOGRÁFICO
+        # ==========================================================
+
+        cidade = request.GET.get("cidade", "").strip()
+
+        uf = request.GET.get("uf", "").strip().upper()
 
         df_final = df_base.copy()
-        nivel = 'Geral'
 
-        if cidade_req:
-            cidades_list = df_base['cidade_norm'].unique().tolist()
-            matches = difflib.get_close_matches(normalizar_texto(cidade_req), cidades_list, n=1, cutoff=0.7)
-            if matches:
-                df_final = df_base[df_base['cidade_norm'] == matches[0]]
-                nivel = 'Cidade'
-        elif uf_req:
-            df_final = df_base[df_base['uf'] == uf_req]
-            nivel = 'Estado'
+        nivel = "Geral"
 
-        # CÁLCULO FINAL
-        media = float(df_final['mensal'].mean()) if not df_final.empty else 0.0
-        
-        dados_resposta = {
-            'custo_medio': round(media, 2),
-            'quantidade_contratos': int(len(df_final)),
-            'nivel': nivel
+        if cidade:
+
+            cidade_normalizada = normalizar_texto(cidade)
+
+            lista = df_base["cidade_norm"].unique().tolist()
+
+            match = difflib.get_close_matches(
+                cidade_normalizada,
+                lista,
+                n=1,
+                cutoff=0.75
+            )
+
+            if match:
+
+                df_final = df_base[
+                    df_base["cidade_norm"] == match[0]
+                ]
+
+                nivel = "Cidade"
+
+        elif uf:
+
+            df_final = df_base[
+                df_base["uf"] == uf
+            ]
+
+            nivel = "Estado"
+
+        print("Após geografia:", len(df_final))
+
+        # ==========================================================
+        # RESULTADO
+        # ==========================================================
+
+        media = 0
+
+        if not df_final.empty:
+            media = float(df_final["mensal"].mean())
+
+        dados = {
+            "custo_medio": round(media, 2),
+            "quantidade_contratos": int(len(df_final)),
+            "nivel": nivel
         }
 
-        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
-            return JsonResponse(dados_resposta)
+        if request.headers.get("x-requested-with") == "XMLHttpRequest":
+            return JsonResponse(dados)
 
-        # CONTEXTO PARA O FRONTEND
         context = {
-            'dados': dados_resposta,
-            'servicos': sorted(df['tipo_servico'].dropna().unique()),
-            'velocidades': sorted(df['velocidade'].dropna().unique()),
-            'meios_fisicos': sorted(df['meio_fisico'].dropna().unique())
+            "dados": dados,
+            "servicos": sorted(df["tipo_servico"].dropna().unique()),
+            "velocidades": sorted(df["velocidade"].dropna().unique()),
+            "meios_fisicos": sorted(df["meio_fisico"].dropna().unique())
         }
-        return render(request, 'providers/custo_medio_integrado.html', context)
+
+        return render(
+            request,
+            "providers/custo_medio_integrado.html",
+            context
+        )
 
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
+
+        import traceback
+
+        traceback.print_exc()
+
+        return JsonResponse(
+            {"error": str(e)},
+            status=500
+        )
 
 # --- Nova Função de Processamento em Lote (CSV) ---
 @login_required

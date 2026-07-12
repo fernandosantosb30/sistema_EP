@@ -47,10 +47,27 @@
 
     <div class="card bg-dark border-success p-4 mt-4">
         <h5 class="text-success mb-3"><i class="bi bi-file-earmark-excel"></i> Processar Planilha (Lote)</h5>
-        <p class="text-white-50 small mb-3">Colunas esperadas: <b>cidade, uf, tipo_servico, velocidade</b></p>
+        <p class="text-white-50 small mb-3">
+            Formato aceito:
+            <b>CSV UTF-8, ANSI ou CSV (MS-DOS)</b><br>
+
+            Colunas obrigatórias:
+            <b>cidade</b>,
+            <b>uf</b>,
+            <b>tipo_servico</b>,
+            <b>velocidade</b>.
+
+            As colunas podem estar separadas por
+            <b>;</b> ou <b>,</b>.
+        </p>
         <div class="row g-3 align-items-center">
             <div class="col-md-9">
-                <input type="file" id="arquivo-csv" class="form-control bg-dark text-white border-secondary" accept=".csv" required>
+                <input
+                type="file"
+                id="arquivo-csv"
+                class="form-control bg-dark text-white border-secondary"
+                accept=".csv,text/csv,application/vnd.ms-excel"
+                required>
             </div>
             <div class="col-md-3">
                 <button type="button" id="btn-processar-lote" class="btn btn-success w-100 fw-bold">
@@ -77,29 +94,125 @@
 </div>
 
 <script>
-// ... (mantenha a lógica de getCookie)
+function getCookie(name) {
+    let cookieValue = null;
 
-document.getElementById('btn-calcular').addEventListener('click', function() {
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+
+        for (let cookie of cookies) {
+            cookie = cookie.trim();
+
+            if (cookie.startsWith(name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+
+    return cookieValue;
+}
+
+const csrftoken = getCookie('csrftoken');
+
+
+// =======================
+// CÁLCULO INDIVIDUAL
+// =======================
+
+document.getElementById('btn-calcular').addEventListener('click', function () {
+
     const params = new URLSearchParams({
         cidade: document.getElementById('cidade').value.trim(),
         uf: document.getElementById('uf').value.trim(),
-        servico: document.getElementById('tipo_servico').value, // deve bater com o request.GET.get('servico') da view
-        velocidade: document.getElementById('velocidade').value,
+        servico: document.getElementById('tipo_servico').value,
+        velocidade: document.getElementById('velocidade').value.trim(),
         meio_fisico: document.getElementById('meio_fisico').value
     });
 
     fetch("{% url 'processar_custo_medio' %}?" + params.toString(), {
-        headers: {'x-requested-with': 'XMLHttpRequest'}
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
     })
     .then(response => response.json())
     .then(data => {
-        document.getElementById('resultado-media').innerText = 'R$ ' + data.custo_medio;
-        document.getElementById('resultado-amostragem').innerText = data.quantidade_contratos + ' contratos';
+
+        if(data.error){
+            alert(data.error);
+            return;
+        }
+
+        document.getElementById('resultado-media').innerHTML =
+            'R$ ' + Number(data.custo_medio).toLocaleString('pt-BR',{
+                minimumFractionDigits:2
+            });
+
+        document.getElementById('resultado-amostragem').innerHTML =
+            data.quantidade_contratos +
+            ' contratos (' + data.nivel + ')';
+
+    })
+    .catch(err=>{
+        console.error(err);
+        alert("Erro ao calcular custo médio.");
     });
+
 });
 
-document.getElementById('btn-processar-lote').addEventListener('click', function() {
-    // ... (lógica de envio de formulário para /custo-medio/processar-lote/)
+
+// =======================
+// PROCESSAMENTO EM LOTE
+// =======================
+
+document.getElementById('btn-processar-lote').addEventListener('click', function () {
+
+    const arquivo = document.getElementById('arquivo-csv').files[0];
+
+    if(!arquivo){
+        alert("Selecione um arquivo CSV.");
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append("arquivo_csv", arquivo);
+
+    fetch("{% url 'processar_lote_csv' %}",{
+        method:"POST",
+        headers:{
+            "X-CSRFToken":csrftoken
+        },
+        body:formData
+    })
+    .then(response=>{
+
+        if(!response.ok){
+            throw new Error("Erro ao processar arquivo.");
+        }
+
+        return response.blob();
+
+    })
+    .then(blob=>{
+
+        const url = window.URL.createObjectURL(blob);
+
+        const a=document.createElement("a");
+        a.href=url;
+        a.download="resultado_precificacao.csv";
+
+        document.body.appendChild(a);
+        a.click();
+
+        a.remove();
+        window.URL.revokeObjectURL(url);
+
+    })
+    .catch(err=>{
+        console.error(err);
+        alert("Erro ao processar o CSV.");
+    });
+
 });
 </script>
 {% endblock %}

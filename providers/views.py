@@ -412,85 +412,320 @@ def processar_custo_medio(request):
 # --- Nova Função de Processamento em Lote (CSV) ---
 @login_required
 def processar_lote_csv(request):
-    if request.method == 'POST' and request.FILES.get('arquivo_csv'):
-        arquivo = request.FILES['arquivo_csv']
-        try:
-            # 1. LEITURA ROBUSTA
-            raw_data = arquivo.read()
-            conteudo = None
-            for encoding in ['utf-8-sig', 'latin-1', 'cp1252', 'cp850']:
-                try:
-                    conteudo = raw_data.decode(encoding)
-                    break
-                except UnicodeDecodeError:
-                    continue
-            
-            if conteudo is None:
-                raise ValueError("Formato de arquivo incompatível. Tente salvar como UTF-8.")
 
-            # 2. CARREGA O CSV DO USUÁRIO
-            df_input = pd.read_csv(io.StringIO(conteudo), sep=None, engine='python', on_bad_lines='skip')
-            df_input.columns = [c.lower().strip() for c in df_input.columns]
-            
-            # 3. CARREGA BASE DE DADOS DO DJANGO
-            # Atualizado para ContratoCusto e novos nomes de colunas
-            contratos_db = ContratoCusto.objects.all().values(
-                'cidade', 'uf', 'tipo_servico', 'mensal', 'velocidade', 'meio_fisico'
+    if request.method != "POST" or "arquivo_csv" not in request.FILES:
+        return HttpResponse(
+            "Erro: Método inválido ou arquivo não enviado.",
+            status=400
+        )
+
+    try:
+
+        import io
+        import re
+        import difflib
+        import pandas as pd
+
+        arquivo = request.FILES["arquivo_csv"]
+
+        # =====================================================
+        # LEITURA DO CSV
+        # =====================================================
+
+        raw = arquivo.read()
+
+        conteudo = None
+
+        for encoding in (
+            "utf-8-sig",
+            "utf-8",
+            "latin1",
+            "cp1252",
+            "cp850",
+        ):
+
+            try:
+                conteudo = raw.decode(encoding)
+                break
+            except UnicodeDecodeError:
+                pass
+
+        if conteudo is None:
+            raise Exception(
+                "Não foi possível identificar o encoding do arquivo."
             )
-            df_db = pd.DataFrame(list(contratos_db))
-            
-            # Normalização do Banco
-            df_db['cidade_norm'] = df_db['cidade'].apply(lambda x: normalizar_texto(x) if x else "")
-            df_db['servico_norm'] = df_db['tipo_servico'].apply(lambda x: normalizar_texto(x) if x else "")
-            df_db['uf'] = df_db['uf'].astype(str).str.upper().str.strip()
-            df_db['mensal'] = pd.to_numeric(df_db['mensal'], errors='coerce')
 
-            # Prepara entrada do usuário (ajuste para os campos do CSV)
-            df_input['cidade_norm'] = df_input['cidade'].apply(lambda x: normalizar_texto(x) if x else "")
-            df_input['servico_norm'] = df_input['tipo_servico'].apply(lambda x: normalizar_texto(x) if x else "")
-            df_input['uf'] = df_input['uf'].astype(str).str.upper().str.strip()
-            
-            # Garante que a velocidade seja tratada como string para comparação
-            df_input['velocidade_str'] = df_input['velocidade'].astype(str).str.strip()
-            df_db['velocidade_str'] = df_db['velocidade'].astype(str).str.strip()
+        df_input = pd.read_csv(
+            io.StringIO(conteudo),
+            sep=None,
+            engine="python",
+            on_bad_lines="skip",
+        )
 
-            # 4. LÓGICA DE CÁLCULO
-            def calcular_custo(row):
-                # Filtro comum: Serviço e Velocidade
-                mask = (df_db['servico_norm'] == row['servico_norm']) & \
-                       (df_db['velocidade_str'] == row['velocidade_str'])
-                
-                # Nível 1: Cidade
-                match_cidade = df_db[mask & (df_db['cidade_norm'] == row['cidade_norm'])]
-                if not match_cidade.empty:
-                    return match_cidade['mensal'].mean()
-                
-                # Nível 2: Estado
-                match_estado = df_db[mask & (df_db['uf'] == row['uf'])]
-                if not match_estado.empty:
-                    return match_estado['mensal'].mean()
-                
-                return None
+        df_input.columns = [
+            c.strip().lower()
+            for c in df_input.columns
+        ]
 
-            df_input['custo_medio'] = df_input.apply(calcular_custo, axis=1)
-            
-            # Tratamento final
-            df_input = df_input.dropna(subset=['cidade', 'tipo_servico'])
-            df_input['custo_medio'] = df_input['custo_medio'].fillna('Não encontrado')
-            
-            # 5. EXPORTAÇÃO
-            cols_export = ['cidade', 'uf', 'tipo_servico', 'velocidade', 'custo_medio']
-            response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
-            response['Content-Disposition'] = 'attachment; filename="resultado_precificacao.csv"'
-            
-            df_input[cols_export].to_csv(path_or_buf=response, index=False, encoding='utf-8-sig', sep=';')
-            return response
-            
-        except Exception as e:
-            logger.exception("Erro crítico no processamento de lote:")
-            return HttpResponse(f"Erro ao processar arquivo: {str(e)}", status=500)
-            
-    return HttpResponse("Erro: Método inválido ou arquivo não enviado.", status=400)
+        # =====================================================
+        # BANCO
+        # =====================================================
+
+        queryset = ContratoCusto.objects.values(
+            "cidade",
+            "uf",
+            "tipo_servico",
+            "velocidade",
+            "meio_fisico",
+            "mensal",
+        )
+
+        df_db = pd.DataFrame(queryset)
+
+        if df_db.empty:
+            return HttpResponse(
+                "Não existem contratos cadastrados.",
+                status=400
+            )
+
+        # =====================================================
+        # NORMALIZAÇÃO
+        # =====================================================
+
+        def limpar_velocidade(valor):
+
+            numeros = re.findall(r"\d+", str(valor))
+
+            if numeros:
+                return numeros[0]
+
+            return ""
+
+        # ---------- Banco ----------
+
+        df_db["cidade"] = df_db["cidade"].fillna("").astype(str)
+
+        df_db["cidade_norm"] = (
+            df_db["cidade"]
+            .apply(normalizar_texto)
+        )
+
+        df_db["servico_norm"] = (
+            df_db["tipo_servico"]
+            .fillna("")
+            .astype(str)
+            .apply(normalizar_texto)
+        )
+
+        df_db["meio_norm"] = (
+            df_db["meio_fisico"]
+            .fillna("")
+            .astype(str)
+            .apply(normalizar_texto)
+        )
+
+        df_db["velocidade_norm"] = (
+            df_db["velocidade"]
+            .apply(limpar_velocidade)
+        )
+
+        df_db["uf"] = (
+            df_db["uf"]
+            .fillna("")
+            .astype(str)
+            .str.upper()
+            .str.strip()
+        )
+
+        df_db["mensal"] = pd.to_numeric(
+            df_db["mensal"],
+            errors="coerce"
+        ).fillna(0)
+
+        # ---------- Entrada ----------
+
+        df_input["cidade_norm"] = (
+            df_input["cidade"]
+            .fillna("")
+            .astype(str)
+            .apply(normalizar_texto)
+        )
+
+        df_input["servico_norm"] = (
+            df_input["tipo_servico"]
+            .fillna("")
+            .astype(str)
+            .apply(normalizar_texto)
+        )
+
+        if "meio_fisico" in df_input.columns:
+
+            df_input["meio_norm"] = (
+                df_input["meio_fisico"]
+                .fillna("")
+                .astype(str)
+                .apply(normalizar_texto)
+            )
+
+        else:
+
+            df_input["meio_norm"] = ""
+
+        df_input["velocidade_norm"] = (
+            df_input["velocidade"]
+            .apply(limpar_velocidade)
+        )
+
+        df_input["uf"] = (
+            df_input["uf"]
+            .fillna("")
+            .astype(str)
+            .str.upper()
+            .str.strip()
+        )
+
+        # =====================================================
+        # CÁLCULO
+        # =====================================================
+
+        def calcular(row):
+
+            filtro = (
+                (df_db["servico_norm"] == row["servico_norm"])
+                &
+                (df_db["velocidade_norm"] == row["velocidade_norm"])
+            )
+
+            if row["meio_norm"]:
+
+                filtro &= (
+                    df_db["meio_norm"] == row["meio_norm"]
+                )
+
+            base = df_db[filtro]
+
+            if base.empty:
+                return pd.Series(
+                    [None, "Sem dados"]
+                )
+
+            # -------------------------
+            # Cidade
+            # -------------------------
+
+            lista = base["cidade_norm"].unique().tolist()
+
+            match = difflib.get_close_matches(
+                row["cidade_norm"],
+                lista,
+                n=1,
+                cutoff=0.75,
+            )
+
+            if match:
+
+                cidade = base[
+                    base["cidade_norm"] == match[0]
+                ]
+
+                if not cidade.empty:
+
+                    return pd.Series(
+                        [
+                            round(
+                                cidade["mensal"].mean(),
+                                2
+                            ),
+                            "Cidade",
+                        ]
+                    )
+
+            # -------------------------
+            # Estado
+            # -------------------------
+
+            estado = base[
+                base["uf"] == row["uf"]
+            ]
+
+            if not estado.empty:
+
+                return pd.Series(
+                    [
+                        round(
+                            estado["mensal"].mean(),
+                            2
+                        ),
+                        "Estado",
+                    ]
+                )
+
+            # -------------------------
+            # Geral
+            # -------------------------
+
+            return pd.Series(
+                [
+                    round(
+                        base["mensal"].mean(),
+                        2
+                    ),
+                    "Geral",
+                ]
+            )
+
+        df_input[
+            ["custo_medio", "nivel"]
+        ] = df_input.apply(
+            calcular,
+            axis=1
+        )
+
+        df_input["custo_medio"] = (
+            df_input["custo_medio"]
+            .fillna("Não encontrado")
+        )
+
+        # =====================================================
+        # EXPORTAÇÃO
+        # =====================================================
+
+        resposta = HttpResponse(
+            content_type="text/csv; charset=utf-8-sig"
+        )
+
+        resposta[
+            "Content-Disposition"
+        ] = (
+            'attachment; filename="resultado_precificacao.csv"'
+        )
+
+        colunas = [
+            "cidade",
+            "uf",
+            "tipo_servico",
+            "velocidade",
+            "custo_medio",
+            "nivel",
+        ]
+
+        df_input[colunas].to_csv(
+            resposta,
+            sep=";",
+            index=False,
+            encoding="utf-8-sig",
+        )
+
+        return resposta
+
+    except Exception as e:
+
+        logger.exception(e)
+
+        return HttpResponse(
+            f"Erro: {e}",
+            status=500,
+        )
 
 def get_provedor_form(): return modelform_factory(Provedor, fields="__all__")
 def get_contato_form(): return modelform_factory(Contato, fields="__all__")

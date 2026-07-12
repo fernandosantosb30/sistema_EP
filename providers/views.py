@@ -245,10 +245,17 @@ def processar_custo_medio(request):
 
         context = {
             'dados': dados_resposta,
-            'servicos': sorted(df['tipo_servico'].dropna().unique()),
-            'velocidades': sorted(df['velocidade'].dropna().unique()),
-            'meios_fisicos': sorted(df['meio_fisico'].dropna().unique())
+            # Normalizamos as listas de filtros para evitar duplicatas como 'fibra' e 'Fibra'
+            'servicos': sorted(df['tipo_servico'].dropna().str.strip().unique()),
+            'velocidades': sorted(df['velocidade'].dropna().str.strip().unique()),
+            'meios_fisicos': sorted(df['meio_fisico'].dropna().str.strip().unique())
         }
+        # Filtro de Meio Físico (Exemplo corrigido)
+        if request.GET.get('meio_fisico'):
+            # O .strip() e lower() aqui garantem que o valor vindo do select 
+            # bata com a normalização feita no início da view
+            meio_req = normalizar_texto(request.GET.get('meio_fisico'))
+            mask &= (df['meio_fisico_norm'] == meio_req)
         return render(request, 'providers/custo_medio_integrado.html', context)
 
     except Exception as e:

@@ -8,14 +8,13 @@
         <h5 class="text-primary mb-3">Filtros de Pesquisa</h5>
         <form id="form-filtros" class="row g-3">
             <div class="col-md-6">
-                <input type="text" id="cidade" name="cidade" class="form-control bg-dark text-white" placeholder="Cidade (Ex: Santa Maria)">
+                <input type="text" id="cidade" name="cidade" class="form-control bg-dark text-white" placeholder="Cidade">
             </div>
             <div class="col-md-6">
-                <input type="text" id="uf" name="uf" class="form-control bg-dark text-white" placeholder="UF (Ex: RS)">
+                <input type="text" id="uf" name="uf" class="form-control bg-dark text-white" placeholder="UF">
             </div>
-            
             <div class="col-md-6">
-                <select id="tipo_servico" name="tipo_servico" class="form-select bg-dark text-white">
+                <select id="tipo_servico" name="servico" class="form-select bg-dark text-white">
                     <option value="">Tipo de Serviço (Todos)</option>
                     {% for s in servicos %}
                         <option value="{{ s }}">{{ s }}</option>
@@ -25,8 +24,7 @@
             <div class="col-md-6">
                 <input type="number" id="velocidade" name="velocidade" class="form-control bg-dark text-white" placeholder="Velocidade (MB)">
             </div>
-
-            <div class="col-md-6">
+            <div class="col-md-12">
                 <select id="meio_fisico" name="meio_fisico" class="form-select bg-dark text-white">
                     <option value="">Meio Físico (Todos)</option>
                     {% for m in meios_fisicos %}
@@ -34,23 +32,6 @@
                     {% endfor %}
                 </select>
             </div>
-            <div class="col-md-6">
-                <select id="ip_fixo" name="ip_fixo" class="form-select bg-dark text-white">
-                    <option value="">IP Fixo (Todos)</option>
-                    {% for ip in ips_fixos %}
-                        <option value="{{ ip }}">{{ ip }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-md-12">
-                <select id="prazo" name="mensal" class="form-select bg-dark text-white">
-                    <option value="">Prazo Contratual (Meses)</option>
-                    {% for v in vigencias %}
-                        <option value="{{ v }}">{{ v }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-
             <div class="col-12 mt-3">
                 <button type="button" id="btn-calcular" class="btn btn-primary w-100 fw-bold">
                     <i class="bi bi-calculator"></i> Calcular Custo Médio
@@ -97,14 +78,19 @@ document.getElementById('btn-calcular').addEventListener('click', function() {
     const params = new URLSearchParams({
         cidade: document.getElementById('cidade').value.trim(),
         uf: document.getElementById('uf').value.trim(),
-        tipo_servico: document.getElementById('tipo_servico').value,
+        servico: document.getElementById('tipo_servico').value, // deve bater com o request.GET.get('servico') da view
         velocidade: document.getElementById('velocidade').value,
-        meio_fisico: document.getElementById('meio_fisico').value,
-        ip_fixo: document.getElementById('ip_fixo').value,
-        prazo: document.getElementById('prazo').value
+        meio_fisico: document.getElementById('meio_fisico').value
     });
 
-    // ... (restante do seu fetch de cálculo)
+    fetch("{% url 'processar_custo_medio' %}?" + params.toString(), {
+        headers: {'x-requested-with': 'XMLHttpRequest'}
+    })
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('resultado-media').innerText = 'R$ ' + data.custo_medio;
+        document.getElementById('resultado-amostragem').innerText = data.quantidade_contratos + ' contratos';
+    });
 });
 
 document.getElementById('btn-processar-lote').addEventListener('click', function() {

@@ -463,6 +463,18 @@ def processar_lote_csv(request):
         # =====================================================
 
         raw = arquivo.read()
+        
+        df_input = pd.read_csv(
+        io.StringIO(conteudo),
+        sep=None,
+        engine="python",
+        on_bad_lines="skip",
+        )
+
+        df_input.columns = [
+            c.strip().lower()
+            for c in df_input.columns
+        ]
 
         conteudo = None
         

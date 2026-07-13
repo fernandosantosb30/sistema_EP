@@ -463,38 +463,8 @@ def processar_lote_csv(request):
         # =====================================================
 
         raw = arquivo.read()
-        
-        df_input = pd.read_csv(
-        io.StringIO(conteudo),
-        sep=None,
-        engine="python",
-        on_bad_lines="skip",
-        )
-
-        df_input.columns = [
-            c.strip().lower()
-            for c in df_input.columns
-        ]
-
+            
         conteudo = None
-        
-        obrigatorias = [
-            "cidade",
-            "uf",
-            "tipo_servico",
-            "velocidade"
-        ]
-
-        faltando = [
-            c for c in obrigatorias
-            if c not in df_input.columns
-        ]
-
-        if faltando:
-            return HttpResponse(
-                "Colunas obrigatórias ausentes: " + ", ".join(faltando),
-                status=400
-            )
 
         for encoding in (
             "utf-8-sig",
@@ -526,7 +496,34 @@ def processar_lote_csv(request):
             c.strip().lower()
             for c in df_input.columns
         ]
+        
+        # =====================================================
+        # VALIDAÇÃO DAS COLUNAS DO CSV
+        # =====================================================
+        obrigatorias = [
+            "cidade",
+            "uf",
+            "tipo_servico",
+            "velocidade",
+        ]
 
+        faltando = [
+            coluna
+            for coluna in obrigatorias
+            if coluna not in df_input.columns
+        ]
+
+        if faltando:
+            return HttpResponse(
+                "Colunas obrigatórias ausentes: "
+                + ", ".join(faltando),
+                status=400,
+            )
+
+        # Se o CSV não possuir meio_fisico, cria a coluna vazia
+        if "meio_fisico" not in df_input.columns:
+            df_input["meio_fisico"] = ""
+            
         # =====================================================
         # BANCO
         # =====================================================

@@ -357,13 +357,24 @@ def processar_custo_medio(request):
 
             cidade = normalizar_texto(cidade)
 
-            df_base = df_base[
-                df_base["cidade_norm"] == cidade
-            ]
+            lista = df_base["cidade_norm"].unique().tolist()
 
-            print("Após cidade:", len(df_base))
+            match = difflib.get_close_matches(
+                cidade,
+                lista,
+                n=1,
+                cutoff=0.75
+            )
 
-            nivel = "Cidade"
+            if match:
+
+                df_base = df_base[
+                    df_base["cidade_norm"] == match[0]
+                ]
+
+                print("Após cidade:", len(df_base))
+
+                nivel = "Cidade"
 
         ############################################################
         # UF
@@ -445,11 +456,6 @@ def processar_lote_csv(request):
 
     try:
 
-        import io
-        import re
-        import difflib
-        import pandas as pd
-
         arquivo = request.FILES["arquivo_csv"]
 
         # =====================================================
@@ -459,6 +465,24 @@ def processar_lote_csv(request):
         raw = arquivo.read()
 
         conteudo = None
+        
+        obrigatorias = [
+            "cidade",
+            "uf",
+            "tipo_servico",
+            "velocidade"
+        ]
+
+        faltando = [
+            c for c in obrigatorias
+            if c not in df_input.columns
+        ]
+
+        if faltando:
+            return HttpResponse(
+                "Colunas obrigatórias ausentes: " + ", ".join(faltando),
+                status=400
+            )
 
         for encoding in (
             "utf-8-sig",
@@ -560,6 +584,7 @@ def processar_lote_csv(request):
             .str.upper()
             .str.strip()
         )
+        
 
         df_db["mensal"] = pd.to_numeric(
             df_db["mensal"],
@@ -581,7 +606,7 @@ def processar_lote_csv(request):
             .astype(str)
             .apply(normalizar_texto)
         )
-
+        
         if "meio_fisico" in df_input.columns:
 
             df_input["meio_norm"] = (
@@ -709,6 +734,7 @@ def processar_lote_csv(request):
             df_input["custo_medio"]
             .fillna("Não encontrado")
         )
+        
 
         # =====================================================
         # EXPORTAÇÃO

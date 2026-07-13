@@ -130,9 +130,10 @@ document.getElementById('btn-calcular').addEventListener('click', function () {
         meio_fisico: document.getElementById('meio_fisico').value
     });
 
-    fetch("{% url 'processar_custo_medio' %}?" + params.toString(), {
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest'
+    fetch("{% url 'processar_custo_medio' %}?"+params.toString(),{
+    headers:{
+        "X-CSRFToken": csrftoken,
+        "X-Requested-With":"XMLHttpRequest"
         }
     })
     .then(response => response.json())
@@ -169,48 +170,61 @@ document.getElementById('btn-processar-lote').addEventListener('click', function
 
     const arquivo = document.getElementById('arquivo-csv').files[0];
 
-    if(!arquivo){
+    if (!arquivo) {
         alert("Selecione um arquivo CSV.");
         return;
     }
 
+    const csrftoken = getCookie('csrftoken');
+
     const formData = new FormData();
     formData.append("arquivo_csv", arquivo);
 
-    fetch("{% url 'processar_lote_csv' %}",{
-        method:"POST",
-        headers:{
-            "X-CSRFToken":csrftoken
-        },
-        body:formData
-    })
-    .then(response=>{
+    fetch("{% url 'processar_lote' %}",{
 
-        if(!response.ok){
+    method:"POST",
+
+    headers:{
+        "X-CSRFToken": csrftoken,
+        "X-Requested-With":"XMLHttpRequest"
+    },
+
+    body:formData
+    })
+
+    .then(response => {
+
+        if (!response.ok) {
             throw new Error("Erro ao processar arquivo.");
         }
 
         return response.blob();
 
     })
-    .then(blob=>{
+
+    .then(blob => {
 
         const url = window.URL.createObjectURL(blob);
 
-        const a=document.createElement("a");
-        a.href=url;
-        a.download="resultado_precificacao.csv";
+        const a = document.createElement("a");
+
+        a.href = url;
+        a.download = "resultado_precificacao.csv";
 
         document.body.appendChild(a);
         a.click();
 
         a.remove();
+
         window.URL.revokeObjectURL(url);
 
     })
-    .catch(err=>{
+
+    .catch(err => {
+
         console.error(err);
         alert("Erro ao processar o CSV.");
+
     });
 
 });

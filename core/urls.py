@@ -29,6 +29,12 @@ urlpatterns = [
     path('provedores/novo/', views.editar_provedor, name='cadastrar_provedor'),
     path('provedores/editar/<int:pk>/', providers_views.editar_provedor, name='editar_provedor'),
     path('provedores/excluir/<int:pk>/', providers_views.excluir_provedor, name='excluir_provedor'),
+
+    # Gestão de Prestadores de Serviço
+    path('prestadores-servico/', providers_views.lista_prestadores_servico, name='lista_prestadores_servico'),
+    path('prestadores-servico/novo/', providers_views.editar_prestador_servico, name='criar_prestador_servico'),
+    path('prestadores-servico/editar/<int:pk>/', providers_views.editar_prestador_servico, name='editar_prestador_servico'),
+    path('prestadores-servico/excluir/<int:pk>/', providers_views.excluir_prestador_servico, name='excluir_prestador_servico'),
     
     # Gestão de Contatos (Adicionado Editar)
     path('provedores/<int:provedor_id>/contato/novo/', providers_views.adicionar_contato, name='adicionar_contato'),

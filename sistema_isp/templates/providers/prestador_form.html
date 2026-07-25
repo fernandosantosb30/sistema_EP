@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    <a href="{% url 'lista_prestadores_servico' %}" class="btn btn-info text-white mb-4"><i class="bi bi-arrow-left"></i> Voltar</a>
+
+    <form method="post">
+        {% csrf_token %}
+        {{ formset.management_form }}
+
+        {% if form.non_field_errors or formset.non_form_errors %}
+        <div class="alert alert-danger">{{ form.non_field_errors }}{{ formset.non_form_errors }}</div>
+        {% endif %}
+
+        <div class="card-custom mb-4">
+            <div class="header-section"><i class="bi bi-building"></i> Informações cadastrais</div>
+            <div class="row g-3">
+                <div class="col-md-6"><label for="{{ form.razao_social.id_for_label }}">Razão social</label>{{ form.razao_social }}{{ form.razao_social.errors }}</div>
+                <div class="col-md-6"><label for="{{ form.nome_fantasia.id_for_label }}">Nome fantasia</label>{{ form.nome_fantasia }}{{ form.nome_fantasia.errors }}</div>
+                <div class="col-md-4"><label for="{{ form.cnpj.id_for_label }}">CNPJ</label>{{ form.cnpj }}{{ form.cnpj.errors }}</div>
+                <div class="col-md-4"><label for="{{ form.contato.id_for_label }}">Contato</label>{{ form.contato }}{{ form.contato.errors }}</div>
+                <div class="col-md-4"><label for="{{ form.telefone.id_for_label }}">Telefone</label>{{ form.telefone }}{{ form.telefone.errors }}</div>
+                <div class="col-md-6"><label for="{{ form.email.id_for_label }}">E-mail</label>{{ form.email }}{{ form.email.errors }}</div>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-lg-6">
+                <div class="card-custom h-100">
+                    <div class="header-section"><i class="bi bi-geo-alt"></i> Região de atuação</div>
+                    <p class="text-white-50 small">Informe as cidades atendidas pelo prestador.</p>
+                    <div id="cidades-formset">
+                        {% for cidade_form in formset %}
+                        <div class="row g-2 align-items-end mb-2 cidade-form">
+                            {{ cidade_form.id }}
+                            <div class="col-7"><label>Cidade</label>{{ cidade_form.nome }}{{ cidade_form.nome.errors }}</div>
+                            <div class="col-3"><label>UF</label>{{ cidade_form.uf }}{{ cidade_form.uf.errors }}</div>
+                            <div class="col-2">{% if cidade_form.instance.pk %}<div class="form-check">{{ cidade_form.DELETE }} <label class="form-check-label" for="{{ cidade_form.DELETE.id_for_label }}">Excluir</label></div>{% endif %}</div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <button type="button" id="adicionar-cidade" class="btn btn-outline-light btn-sm mt-2"><i class="bi bi-plus-lg"></i> Adicionar cidade</button>
+                </div>
+            </div>
+
+            <div class="col-lg-3">
+                <div class="card-custom h-100">
+                    <div class="header-section"><i class="bi bi-tools"></i> Serviços prestados</div>
+                    <div class="form-check mb-3">{{ form.instalacao_satelite }} <label class="form-check-label" for="{{ form.instalacao_satelite.id_for_label }}">Instalação de Satélite</label></div>
+                    <div class="form-check">{{ form.teste_rede }} <label class="form-check-label" for="{{ form.teste_rede.id_for_label }}">Teste de rede</label></div>
+                </div>
+            </div>
+
+            <div class="col-lg-3">
+                <div class="card-custom h-100">
+                    <div class="header-section"><i class="bi bi-file-earmark-check"></i> Capacitação</div>
+                    <label class="mb-2">Possui documentação?</label>
+                    {% for choice in form.possui_documentacao %}
+                    <div class="form-check">{{ choice.tag }} <label class="form-check-label" for="{{ choice.id_for_label }}">{{ choice.choice_label }}</label></div>
+                    {% endfor %}
+                    {{ form.possui_documentacao.errors }}
+                </div>
+            </div>
+        </div>
+
+        <div class="card-custom mt-4">
+            <div class="header-section"><i class="bi bi-card-text"></i> Observações</div>
+            {{ form.observacoes }}{{ form.observacoes.errors }}
+        </div>
+
+        <div class="mt-4 mb-5">
+            <button type="submit" class="btn btn-primary px-4 shadow"><i class="bi bi-check-lg"></i> Salvar prestador</button>
+            <a href="{% url 'lista_prestadores_servico' %}" class="btn btn-info text-white px-4 ms-2">Cancelar</a>
+        </div>
+    </form>
+</div>
+
+<template id="cidade-form-vazio">
+    <div class="row g-2 align-items-end mb-2 cidade-form">
+        <div class="col-7"><label>Cidade</label>{{ formset.empty_form.nome }}</div>
+        <div class="col-3"><label>UF</label>{{ formset.empty_form.uf }}</div>
+        <div class="col-2"></div>
+    </div>
+</template>
+{% endblock %}
+
+{% block extra_scripts %}
+{{ block.super }}
+<script>
+document.getElementById('adicionar-cidade').addEventListener('click', function () {
+    const totalForms = document.getElementById('id_cidades_atendidas-TOTAL_FORMS');
+    const novoFormulario = document.getElementById('cidade-form-vazio').innerHTML.replace(/__prefix__/g, totalForms.value);
+    document.getElementById('cidades-formset').insertAdjacentHTML('beforeend', novoFormulario);
+    totalForms.value = Number(totalForms.value) + 1;
+});
+</script>
+{% endblock %}

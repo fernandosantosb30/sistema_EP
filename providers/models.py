@@ -87,3 +87,49 @@ class InboxContrato(models.Model):
 
     def __str__(self):
         return f"Coleta de {self.data_criacao}"
+
+
+class PrestadorServico(models.Model):
+    """Cadastro de empresas parceiras que prestam serviços de campo."""
+    razao_social = models.CharField(max_length=255)
+    nome_fantasia = models.CharField(max_length=255)
+    cnpj = models.CharField(max_length=18, unique=True, null=True, blank=True, db_index=True)
+    contato = models.CharField(max_length=100)
+    telefone = models.CharField(max_length=20)
+    email = models.EmailField()
+    instalacao_satelite = models.BooleanField(default=False)
+    teste_rede = models.BooleanField(default=False)
+    possui_documentacao = models.BooleanField(default=False)
+    observacoes = models.TextField(blank=True)
+    data_cadastro = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Prestador de serviço'
+        verbose_name_plural = 'Prestadores de serviço'
+        ordering = ['nome_fantasia']
+
+    def __str__(self):
+        return self.nome_fantasia
+
+
+class CidadeAtendidaPrestador(models.Model):
+    prestador = models.ForeignKey(
+        PrestadorServico,
+        on_delete=models.CASCADE,
+        related_name='cidades_atendidas',
+    )
+    nome = models.CharField(max_length=100, db_index=True)
+    uf = models.CharField(max_length=2, db_index=True)
+
+    class Meta:
+        verbose_name = 'Cidade atendida pelo prestador'
+        verbose_name_plural = 'Cidades atendidas pelos prestadores'
+        unique_together = ('prestador', 'nome', 'uf')
+
+    def save(self, *args, **kwargs):
+        self.nome = normalizar_texto(self.nome)
+        self.uf = self.uf.upper().strip()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.nome}/{self.uf}"

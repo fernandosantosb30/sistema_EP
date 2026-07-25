@@ -24,7 +24,7 @@ from django.core.paginator import Paginator
 from django.db import connection 
 from django.db.models import Q
 from django.db.models.functions import Lower, Trim
-from django.forms import modelform_factory
+from django.forms import inlineformset_factory, modelform_factory
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, get_object_or_404, redirect
 from django.views.generic import ListView
@@ -33,8 +33,14 @@ from django.views.generic import ListView
 from .utils import normalizar_texto 
 
 # --- MODELOS E FORMULÁRIOS LOCAIS ---
-from .forms import ProvedorForm, ContatoForm, CidadeForm
-from .models import InboxContrato, ContratoCusto, Provedor, Contato, CidadeAtendida
+from .forms import (
+    ProvedorForm, ContatoForm, CidadeForm, PrestadorServicoForm,
+    CidadeAtendidaPrestadorForm,
+)
+from .models import (
+    InboxContrato, ContratoCusto, Provedor, Contato, CidadeAtendida,
+    PrestadorServico, CidadeAtendidaPrestador,
+)
 
 def buscar_custo(row):
     """
@@ -157,6 +163,67 @@ def lista_provedores(request):
         'page_obj': page_obj,
         'total_registros': queryset.count() # Agora mostra o total da busca
     })
+
+
+@login_required
+def lista_prestadores_servico(request):
+    query = request.GET.get('q', '').strip()
+    prestadores = PrestadorServico.objects.all()
+    if query:
+        prestadores = prestadores.filter(
+            Q(nome_fantasia__icontains=query)
+            | Q(razao_social__icontains=query)
+            | Q(cnpj__icontains=query)
+            | Q(contato__icontains=query)
+        )
+
+    prestadores = prestadores.order_by('-id')
+    paginator = Paginator(prestadores, 10)
+    page_obj = paginator.get_page(request.GET.get('page'))
+    return render(request, 'providers/prestadores_lista.html', {
+        'page_obj': page_obj,
+        'total_registros': prestadores.count(),
+    })
+
+
+@login_required
+def editar_prestador_servico(request, pk=None):
+    prestador = get_object_or_404(PrestadorServico, pk=pk) if pk else None
+    CidadeFormSet = inlineformset_factory(
+        PrestadorServico,
+        CidadeAtendidaPrestador,
+        form=CidadeAtendidaPrestadorForm,
+        extra=1,
+        can_delete=True,
+    )
+
+    if request.method == 'POST':
+        form = PrestadorServicoForm(request.POST, instance=prestador)
+        formset = CidadeFormSet(request.POST, instance=prestador)
+        if form.is_valid() and formset.is_valid():
+            prestador = form.save()
+            formset.instance = prestador
+            formset.save()
+            messages.success(request, 'Prestador de serviço salvo com sucesso!')
+            return redirect('lista_prestadores_servico')
+    else:
+        form = PrestadorServicoForm(instance=prestador)
+        formset = CidadeFormSet(instance=prestador)
+
+    return render(request, 'providers/prestador_form.html', {
+        'form': form,
+        'formset': formset,
+        'prestador': prestador,
+    })
+
+
+@user_passes_test(e_admin)
+@login_required
+def excluir_prestador_servico(request, pk):
+    prestador = get_object_or_404(PrestadorServico, pk=pk)
+    prestador.delete()
+    messages.success(request, 'Prestador de serviço excluído com sucesso!')
+    return redirect('lista_prestadores_servico')
 
 @login_required
 def consulta_provedores(request):

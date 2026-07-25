@@ -100,7 +100,7 @@ else:
             "ENGINE": "django.db.backends.postgresql",
             "NAME": "sistema_isp_db",
             "USER": "postgres",
-            "PASSWORD": "SUA_SENHA_LOCAL",
+            "PASSWORD": "GGwaopq@1",
             "HOST": "localhost",
             "PORT": "5432",
         }

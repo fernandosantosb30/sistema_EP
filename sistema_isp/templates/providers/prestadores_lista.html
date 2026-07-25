@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    <div class="d-flex flex-wrap gap-3 justify-content-between align-items-center mb-4">
+        <h3 class="mb-0">Prestadores de Serviço</h3>
+        <div class="d-flex gap-2 align-items-center">
+            <form method="get" class="mb-0">
+                <div class="input-group">
+                    <input type="text" name="q" class="form-control" placeholder="Pesquisar..." value="{{ request.GET.q }}">
+                    <button class="btn btn-primary" type="submit" aria-label="Pesquisar"><i class="bi bi-search"></i></button>
+                    {% if request.GET.q %}
+                    <a href="{% url 'lista_prestadores_servico' %}" class="btn btn-outline-danger" aria-label="Limpar busca"><i class="bi bi-x-lg"></i></a>
+                    {% endif %}
+                </div>
+            </form>
+            <a href="{% url 'criar_prestador_servico' %}" class="btn btn-primary shadow-sm">
+                <i class="bi bi-plus-lg"></i> Novo Registro
+            </a>
+        </div>
+    </div>
+
+    <p class="text-white mb-3">Total de registros: <strong>{{ total_registros }}</strong></p>
+
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th class="ps-4">AÇÕES</th>
+                        <th>NOME FANTASIA</th>
+                        <th>RAZÃO SOCIAL</th>
+                        <th>CONTATO</th>
+                        <th>TELEFONE</th>
+                        <th>CADASTRO</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for prestador in page_obj %}
+                    <tr>
+                        <td class="ps-4">
+                            <a href="{% url 'editar_prestador_servico' prestador.id %}" class="btn btn-sm btn-link text-warning p-0" title="Editar">
+                                <i class="bi bi-pencil-square"></i>
+                            </a>
+                            {% if user.is_superuser %}
+                            <a href="{% url 'excluir_prestador_servico' prestador.id %}" class="btn btn-sm btn-link text-danger p-0" title="Excluir" onclick="return confirm('Confirmar exclusão de {{ prestador.nome_fantasia }}?')">
+                                <i class="bi bi-trash"></i>
+                            </a>
+                            {% endif %}
+                        </td>
+                        <td>{{ prestador.nome_fantasia }}</td>
+                        <td>{{ prestador.razao_social }}</td>
+                        <td>{{ prestador.contato }}</td>
+                        <td>{{ prestador.telefone }}</td>
+                        <td>{{ prestador.data_cadastro|date:"d/m/Y H:i" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="text-center py-4">Nenhum prestador de serviço encontrado.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {% if page_obj.paginator.num_pages > 1 %}
+    <nav class="mt-4" aria-label="Navegação de páginas">
+        <ul class="pagination">
+            {% if page_obj.has_previous %}
+            <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">Anterior</a></li>
+            {% endif %}
+            <li class="page-item disabled"><span class="page-link">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span></li>
+            {% if page_obj.has_next %}
+            <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">Próxima</a></li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+{% endblock %}

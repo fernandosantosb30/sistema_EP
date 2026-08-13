@@ -23,3 +23,6 @@ package-lock.json
 
 # Pasta de Scripts
 scripts_uteis/
+
+# Planilhas locais (não versionar no deploy)
+Lista_Cidades*

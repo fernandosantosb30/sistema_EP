@@ -1,0 +1,7 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card p-4"><h2>{{ titulo }}</h2>
+<form method="post">{% csrf_token %}{{ form.as_p }}
+<button class="btn btn-primary" type="submit">Salvar</button>
+<a class="btn btn-outline-light" href="{% url 'editar_provedor' provedor.pk %}">Cancelar</a>
+</form></div>{% endblock %}

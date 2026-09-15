@@ -1,0 +1,201 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ep Conexões & Negócios</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=1.1">
+    <style>
+    :root { 
+        /* Cores Ep Conexões & Negócios - Padrão Image 2 */
+        --ep-dark: #0a192f;
+        --ep-card: #112240;
+        --ep-lime: #ccff00;
+        --ep-border: #233554;
+        --ep-text: #e6f1ff;
+        --ep-text-muted: #8892b0;
+    }
+
+    /* 1. FUNDO GLOBAL: Garante o azul marinho em tudo */
+    body {
+        background-color: var(--ep-dark) !important;
+        color: var(--ep-text);
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        min-height: 100vh;
+    }
+
+    /* 2. CARDS: Login, Cadastro e Seções */
+    .card, .card-custom, .login-card {
+        background-color: var(--ep-card) !important;
+        border: 1px solid var(--ep-border) !important;
+        color: var(--ep-text) !important;
+        border-radius: 8px;
+    }
+
+    /* 3. TÍTULOS E LABELS: Amarelo Neon/Lima */
+    h2, h5, .header-section, label, .navbar-brand, .section-title {
+        color: var(--ep-lime) !important;
+        font-weight: bold;
+    }
+
+    /* 4. INPUTS: Estilo escuro com foco lima */
+    .form-control, .form-select {
+        background-color: var(--ep-dark) !important;
+        border: 1px solid var(--ep-border) !important;
+        color: white !important;
+    }
+
+    input::placeholder, textarea::placeholder {
+        color: #fff !important;
+        opacity: 1;
+    }
+
+    .form-control:focus {
+        border-color: var(--ep-lime) !important;
+        box-shadow: 0 0 0 0.25rem rgba(204, 255, 0, 0.1) !important;
+    }
+
+    /* 5. TABELAS: Correção total do fundo branco (Image 1f0ab9.png) */
+    .table, .dataTable, .dataTables_wrapper {
+        background-color: var(--ep-card) !important;
+        color: var(--ep-text) !important;
+        border: none !important;
+    }
+
+    .table thead th {
+        background-color: #1d2d50 !important;
+        color: var(--ep-lime) !important;
+        border-bottom: 2px solid var(--ep-border) !important;
+        text-transform: uppercase;
+        font-size: 0.85rem;
+    }
+
+    /* CORREÇÃO DIRETA: Remove o fundo branco das células e coloca o texto em destaque */
+    .table tbody td {
+        background-color: var(--ep-card) !important; /* Remove o branco aqui */
+        color: var(--ep-text) !important;
+        border-color: var(--ep-border) !important;
+        vertical-align: middle;
+    }
+
+    /* Hover nas linhas da tabela */
+    .table-hover tbody tr:hover td {
+        background-color: #1d2d50 !important;
+        color: var(--ep-lime) !important;
+    }
+
+    /* 6. BOTÕES: Padrão Lima/Dark */
+    .btn-primary {
+        background-color: var(--ep-lime) !important;
+        border-color: var(--ep-lime) !important;
+        color: var(--ep-dark) !important;
+        font-weight: bold;
+    }
+
+    /* 7. MENU INICIAL: Cards Interativos */
+    .card-menu { 
+        transition: transform 0.3s; 
+        border: 1px solid var(--ep-border); 
+        border-radius: 15px; 
+        color: white;
+        background-color: var(--ep-card);
+        min-height: 300px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-decoration: none;
+    }
+    
+    .card-menu:hover { 
+        transform: translateY(-10px); 
+        border-color: var(--ep-lime);
+        color: var(--ep-lime); 
+    }
+    
+    .icon-large { font-size: 5rem; margin-bottom: 1rem; }
+
+    /* 8. DATATABLES: Controles (Search/Length) */
+    .dataTables_info, .dataTables_length, .dataTables_filter {
+        color: var(--ep-text-muted) !important;
+        margin-bottom: 10px;
+        font-weight: 500;
+    }
+
+    .dataTables_filter input {
+        background-color: var(--ep-dark) !important;
+        border: 1px solid var(--ep-border) !important;
+        color: white !important;
+        border-radius: 4px;
+        padding: 5px 10px;
+    }
+    .modal-backdrop {
+    background-color: rgba(0, 0, 0, 0.7) !important;
+}
+    .text-lime {
+    color: var(--ep-lime) !important;
+}
+</style>
+
+</head>
+<body class="{% if request.resolver_match.url_name in 'editar_provedor,cadastro,consulta_provedores' %}page-cadastro{% endif %}">
+
+{% if user.is_authenticated %}
+<nav class="navbar navbar-expand-lg navbar-dark mb-5">
+    <div class="container">
+        <a class="navbar-brand fw-bold" href="/">
+            <i class="bi bi-broadcast"></i> Ep Conexões & Negócios
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ms-auto">
+                <li class="nav-item"><a class="nav-link" href="{% url 'home' %}">Home</a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url 'lista_provedores' %}">Listagem</a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url 'lista_prestadores_servico' %}">Prest/Serviço</a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url 'consulta_provedores' %}">Consulta Mapeamento</a></li>
+
+                
+                {% if user.is_superuser %}
+                <li class="nav-item">
+                    <a class="nav-link text-warning" href="{% url 'gestao_usuarios' %}">Usuários</a>
+                </li>
+                {% endif %}
+
+                <li class="nav-item">
+                    <a class="nav-link text-danger" href="#" onclick="event.preventDefault(); confirmarLogout();">Sair</a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<form id="logout-form" action="{% url 'logout' %}" method="POST" style="display: none;">
+    {% csrf_token %}
+</form>
+{% endif %}
+
+<div class="container mt-4">
+    {% for message in messages %}<div role="alert" class="alert {% if message.tags == 'error' %}alert-danger{% else %}alert-{{ message.tags|default:'info' }}{% endif %}">{{ message }}</div>{% endfor %}
+    {% block content %}
+    {% endblock %}
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+{% block extra_scripts %}
+<script>
+    function confirmarLogout() {
+        if (confirm('Deseja realmente sair do sistema?')) {
+            document.getElementById('logout-form').submit();
+        }
+    }
+</script>
+{% endblock %}
+</body>
+</html>

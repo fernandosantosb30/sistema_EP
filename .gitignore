@@ -1,0 +1,45 @@
+# Arquivos de Sistema e IDEs
+.DS_Store
+.vscode/
+.idea/
+
+# Ambientes Virtuais e Cache
+.venv/
+__pycache__/
+*.pyc
+
+# Backups e Scripts de Teste
+*.json
+importar_*.py
+verificar_*.py
+db_*.json
+
+# Arquivos de Configuração de Node/Frontend
+node_modules/
+package-lock.json
+
+# Ambiente (Nunca suba suas senhas!)
+.env
+
+# Pasta de Scripts
+scripts_uteis/
+
+# Planilhas locais (não versionar no deploy)
+Lista_Cidades*
+# Estado local, dados privados e cópias de revisão
+.local/
+ops-private/
+public-review/
+*.zip
+AUDITORIA_PUBLICACAO_PRIVADA.md
+staticfiles/
+*.sqlite3
+*.dump
+*.sql
+*.log
+*.pem
+*.key
+.env.*
+!.env.example
+provedores_contatos.csv
+export_csv/

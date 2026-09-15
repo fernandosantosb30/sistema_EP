@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="text-white"><i class="bi bi-shield-lock text-warning"></i> Controle de Acesso</h2>
+        <a href="{% url 'criar_usuario' %}" class="btn btn-success"><i class="bi bi-person-plus"></i> Novo Funcionário</a>
+    </div>
+
+    <div class="card bg-dark border-secondary">
+        <table class="table table-dark table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Usuário</th>
+                    <th>E-mail</th>
+                    <th>Status</th>
+                    <th>Último Login</th>
+                    <th class="text-center">Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in usuarios %}
+                <tr>
+                    <td>{{ u.username }} {% if u.is_superuser %}<span class="badge bg-warning text-dark">Admin</span>{% endif %}</td>
+                    <td>{{ u.email }}</td>
+                    <td>{% if u.is_active %}<span class="text-success">Ativo</span>{% else %}<span class="text-danger">Inativo</span>{% endif %}</td>
+                    <td>{{ u.last_login|date:"d/m/Y H:i"|default:"Nunca" }}</td>
+                    <td class="text-center">
+                    {% if u.id %}
+                        <a href="{% url 'editar_usuario' u.id %}" class="btn btn-sm btn-primary">Editar</a>
+                        <form method="post" action="{% url 'excluir_usuario' u.id %}" class="d-inline" onsubmit="return confirm('Confirmar exclusão?')">{% csrf_token %}<button type="submit" class="btn btn-sm btn-danger" aria-label="Excluir">
+                            <i class="bi bi-trash"></i>
+                        </button></form>
+                    {% else %}
+                        <button class="btn btn-sm btn-secondary" disabled>Erro de ID</button>
+                    {% endif %}
+                </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,202 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+
+
+<div class="container-fluid px-4 py-3">
+    <div class="mb-3">
+        <a href="{% url 'lista_provedores' %}" class="btn btn-info text-white fw-bold shadow-sm">Voltar</a>
+    </div>
+
+    <form method="post" id="meuFormulario" onsubmit="exibirSalvando()">
+        {% csrf_token %}
+
+        <div class="card-custom mb-4 p-3 border rounded shadow-sm" style="background-color: rgba(255,255,255,0.05);">
+            <div class="header-section mb-3 fw-bold text-white"><i class="bi bi-person"></i> Identificação</div>
+            <div class="row g-3">
+                <div class="col-md-2">
+                    <label class="small text-white-50">Código</label>
+                    <input type="text" class="form-control bg-dark text-white border-secondary" value="{{ provedor.id|default:'Gerado ao salvar' }}" readonly>
+                </div>
+                <div class="col-md-6">
+                    <label class="small text-white-50">Nome *</label>
+                    {{ form.nome }}
+                </div>
+                <div class="col-md-3 d-flex align-items-center pt-3">
+                    <div class="form-check form-switch">
+                        {{ form.ativo }}
+                        <label class="form-check-label text-white" for="id_ativo">Ativo</label>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <label class="small text-white-50">Razão Social</label>
+                    {{ form.razao_social }}
+                </div>
+                <div class="col-md-6">
+                    <label class="small text-white-50">CNPJ</label>
+                    {{ form.cnpj }}
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-3 mb-4">
+            <div class="col-md-4">
+                <div class="card-custom p-3 border rounded shadow-sm h-100" style="background-color: rgba(255,255,255,0.05);">
+                    <div class="header-section text-white fw-bold mb-2">Meios Físicos</div>
+                    <div class="form-check">{{ form.fibra }} <label class="text-lime">Fibra</label></div>
+                    <div class="form-check">{{ form.radio }} <label class="text-lime">Rádio</label></div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card-custom p-3 border rounded shadow-sm h-100" style="background-color: rgba(255,255,255,0.05);">
+                    <div class="header-section text-white fw-bold mb-2">Atuação/Serviços</div>
+                    <div class="form-check">{{ form.link_dedicado }} <label class="text-lime">Link Dedicado</label></div>
+                    <div class="form-check">{{ form.link_banda_larga }} <label class="text-lime">Link Banda Larga</label></div>
+                    <div class="form-check">{{ form.zona_rural }} <label class="text-lime">Zona Rural</label></div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card-custom p-3 border rounded shadow-sm h-100" style="background-color: rgba(255,255,255,0.05);">
+                    <div class="header-section text-white fw-bold mb-2">Parceiros Trunk</div>
+                    <div class="form-check">{{ form.parceiro_bst }} <label class="text-lime">BST</label></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-4 mb-5">
+            <button type="submit" id="btnSalvar" class="btn btn-primary px-4 shadow">Salvar Provedor</button>
+            <a href="{% url 'lista_provedores' %}" class="btn btn-info text-white px-4 ms-2">Cancelar</a>
+        </div>
+    </form> 
+    <div class="row g-3 mt-1"> 
+        <div class="col-md-4">
+            <div class="card-custom p-3 border rounded shadow-sm h-100" style="background-color: rgba(255,255,255,0.05);">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div class="header-section text-lime fw-bold"><i class="bi bi-geo-alt"></i> Cidades</div>
+                    <div class="d-flex gap-1">
+                        {% if provedor and provedor.id %}
+                            {% if user.is_superuser %}
+                                <form method="post" action="{% url 'excluir_todas_cidades' provedor.id %}" class="d-inline" onsubmit="return confirm('Confirmar exclusão?')">{% csrf_token %}<button type="submit" class="btn btn-sm btn-outline-danger py-0 px-2" aria-label="Excluir"><i class="bi bi-trash"></i></button></form>
+                            {% endif %}
+                            
+                            <form method="post" action="{% url 'importar_cidades_csv' provedor.id %}" enctype="multipart/form-data" class="d-inline">
+                                {% csrf_token %}
+                                <label for="id_csv" class="btn btn-sm btn-outline-secondary py-0 px-2" title="Importar CSV" style="cursor: pointer;">
+                                    <i class="bi bi-file-earmark-spreadsheet"></i>
+                                </label>
+                                <input type="file" name="arquivo_csv" id="id_csv" onchange="this.form.submit()" style="display:none;" accept=".csv">
+                            </form>
+
+                            <button type="button" class="btn btn-sm btn-primary py-0 px-2" data-bs-toggle="modal" data-bs-target="#modalCidade">
+                                <i class="bi bi-plus-lg"></i>
+                            </button>
+                        {% else %}
+                            <button type="button" class="btn btn-sm btn-secondary py-0 px-2" disabled><i class="bi bi-plus-lg"></i></button>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <table class="table table-sm table-dark table-hover mb-0">
+                    <thead><tr class="small text-lime"><th>CIDADE</th><th>UF</th><th class="text-center">AÇÃO</th></tr></thead>
+                    <tbody>
+                        {% for cidade in provedor.cidades.all %}
+                        <tr class="small align-middle">
+                            <td>{{ cidade.nome }}</td>
+                            <td>{{ cidade.uf }}</td>
+                            <td class="text-center">
+                                {% if user.is_superuser %}
+                                    <form method="post" action="{% url 'excluir_cidade' cidade.id %}" class="d-inline" onsubmit="return confirm('Confirmar exclusão?')">{% csrf_token %}<button type="submit" class="text-danger" aria-label="Excluir"><i class="bi bi-trash"></i></button></form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="3" class="text-center text-white-50 small py-2">Sem cidades.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="col-md-8">
+            <div class="card-custom p-3 border rounded shadow-sm h-100" style="background-color: rgba(255,255,255,0.05);">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div class="header-section text-lime fw-bold"><i class="bi bi-person-lines-fill"></i> Contatos</div>
+                    {% if provedor and provedor.id %}
+                        <button type="button" class="btn btn-sm btn-primary py-0 px-2" data-bs-toggle="modal" data-bs-target="#modalContato">
+                            <i class="bi bi-plus-lg"></i>
+                        </button>
+                    {% else %}
+                        <button type="button" class="btn btn-sm btn-secondary py-0 px-2" disabled><i class="bi bi-plus-lg"></i></button>
+                    {% endif %}
+                </div>
+                
+                <table class="table table-sm table-dark table-hover mb-0">
+                    <thead><tr class="small text-lime"><th>NOME</th><th>CARGO</th><th>TELEFONE</th><th>EMAIL</th><th class="text-center">AÇÃO</th></tr></thead>
+                    <tbody>
+                        {% for contato in provedor.contatos.all %}
+                        <tr class="small align-middle">
+                            <td>{{ contato.nome }}</td>
+                            <td>{{ contato.cargo|default:"-" }}</td>
+                            <td>{{ contato.telefone }}</td>
+                            <td>{{ contato.email|default:"-" }}</td>
+                            <td class="text-center">
+                                <a href="{% url 'editar_contato' contato.id %}" class="btn btn-link text-info p-0 me-1" aria-label="Editar contato"><i class="bi bi-pencil-square"></i></a>
+                                {% if user.is_superuser %}
+                                    <form method="post" action="{% url 'excluir_contato' contato.id %}" class="d-inline" onsubmit="return confirm('Confirmar exclusão?')">{% csrf_token %}<button type="submit" class="text-danger" aria-label="Excluir"><i class="bi bi-trash"></i></button></form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="5" class="text-center text-white-50 small py-2">Sem contatos cadastrados.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalCidade" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content bg-dark text-white">
+            {% if provedor and provedor.id %}
+                <form method="post" action="{% url 'adicionar_cidade' provedor.id %}">
+                    {% csrf_token %}
+                    <div class="modal-header"><h5 class="modal-title">Nova Cidade</h5></div>
+                    <div class="modal-body">{{ form_cidade.as_p }}</div>
+                    <div class="modal-footer"><button type="submit" class="btn btn-primary">Salvar</button></div>
+                </form>
+            {% else %}
+                <div class="modal-body"><p>Salve o provedor primeiro para adicionar cidades.</p></div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalContato" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content bg-dark text-white">
+            {% if provedor and provedor.id %}
+                <form method="post" action="{% url 'adicionar_contato' provedor.id %}">
+                    {% csrf_token %}
+                    <div class="modal-header"><h5 class="modal-title">Novo Contato</h5></div>
+                    <div class="modal-body">{{ form_contato.as_p }}</div>
+                    <div class="modal-footer"><button type="submit" class="btn btn-primary">Salvar</button></div>
+                </form>
+            {% else %}
+                <div class="modal-body"><p>Salve o provedor primeiro para adicionar contatos.</p></div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+    function exibirSalvando() {
+        const btn = document.getElementById('btnSalvar');
+        btn.disabled = true;
+        btn.innerText = 'Salvando...';
+    }
+</script>
+
+{% endblock %}

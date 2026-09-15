@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    <div class="mb-3 d-flex justify-content-between align-items-center">
+        <h3 class="text-white">Listagem de Provedores</h3>
+        <a href="{% url 'cadastrar_provedor' %}" class="btn btn-primary shadow-sm">
+            <i class="bi bi-plus-lg"></i> Novo Registro
+        </a>
+
+        <form method="GET" action="{% url 'lista_provedores' %}" class="mb-0">
+            <div class="row align-items-center">
+                <div class="col-md-12"> 
+                    <div class="input-group">
+                        <input type="text" name="q" 
+                               class="form-control py-1 bg-dark text-white" 
+                               style="border: 2px solid #198754;" 
+                               placeholder="Pesquisar..." 
+                               value="{{ request.GET.q }}">
+                        
+                        <button class="btn btn-success py-1 px-3" type="submit">
+                            <i class="bi bi-search"></i>
+                        </button>
+                        
+                        {% if request.GET.q %}
+                            <a href="{% url 'lista_provedores' %}" class="btn btn-outline-danger py-1 px-3">
+                                <i class="bi bi-x-lg"></i>
+                            </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+
+                <nav aria-label="Navegação de página">
+                    <ul class="pagination">
+                        {% if page_obj.has_previous %}
+                            <li class="page-item"><a class="page-link" href="?page=1{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">Primeira</a></li>
+                            <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">Anterior</a></li>
+                        {% endif %}
+
+                        <li class="page-item disabled"><span class="page-link">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span></li>
+
+                        {% if page_obj.has_next %}
+                            <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">Próxima</a></li>
+                            <li class="page-item"><a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">Última</a></li>
+                        {% endif %}
+                    </ul>
+                </nav>
+
+    <div class="d-flex justify-content-between align-items-center mt-3">
+        <div class="text-white">
+            Total de registros: <strong>{{ total_registros }}</strong>
+        </div>
+        </div>
+
+    <div class="card shadow-sm border-0" style="background-color: rgba(255,255,255,0.05);">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-dark table-hover mb-0">
+                    <thead class="text-white-50 small">
+                        <tr>
+                            <th class="ps-4">AÇÕES</th>
+                            <th>CÓDIGO</th>
+                            <th>NOME</th>
+                            <th>DT.CADASTRO</th>
+                            <th>ATIVO</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-white">
+                        {% if page_obj %}
+                            {% for p in page_obj %}
+                            <tr>
+                                <td class="ps-4">
+                                    <a href="{% url 'editar_provedor' p.id %}" class="btn btn-sm btn-link text-warning p-0" title="Editar">
+                                        <i class="bi bi-pencil-square"></i>
+                                    </a>
+                                    
+                                    {% if user.is_superuser %}
+                                    <form method="post" action="{% url 'excluir_provedor' p.id %}" class="d-inline" onsubmit="return confirm('Confirmar exclusão?')">{% csrf_token %}<button type="submit" class="btn btn-sm btn-link text-danger p-0" aria-label="Excluir">
+                                        <i class="bi bi-trash"></i>
+                                    </button></form>
+                                    {% endif %}
+                                </td>
+                                <td>{{ p.id }}</td>
+                                <td>{{ p.nome }}</td>
+                                <td>{{ p.data_cadastro|default:"---"|date:"d/m/Y H:i" }}</td>
+                                <td>{% if p.ativo %}S{% else %}N{% endif %}</td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="5" class="text-center py-4">Nenhum provedor encontrado nesta página.</td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

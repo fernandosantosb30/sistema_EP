@@ -1,0 +1,100 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+
+<div class="container-fluid px-4 py-3">
+    <div class="mb-3">
+        <a href="{% url 'lista_provedores' %}" class="btn btn-info text-white fw-bold shadow-sm">Voltar</a>
+    </div>
+
+    <form method="post" onsubmit="this.querySelector('button[type=submit]').disabled=true; this.querySelector('button[type=submit]').innerText='Salvando...';">
+        {% csrf_token %}
+        
+        <!-- Identificação -->
+        <div class="card-custom mb-4 p-3 border rounded shadow-sm" style="background-color: rgba(255,255,255,0.05);">
+            <div class="header-section mb-3 fw-bold text-white"><i class="bi bi-person"></i> Identificação</div>
+            <div class="row g-3">
+                <div class="col-md-2">
+                    <label class="small text-white-50">Código</label>
+                    <input type="text" class="form-control bg-dark text-white border-secondary" value="{{ provedor.id|default:'Gerado ao salvar' }}" readonly>
+                </div>
+                <div class="col-md-6">
+                    <label class="small text-white-50">Nome</label>
+                    <input type="text" name="nome" class="form-control bg-dark text-white border-secondary" value="{{ provedor.nome|default:'' }}" required>
+                </div>
+                <div class="col-md-3 d-flex align-items-center pt-3">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="ativo" id="switchAtivo" {% if provedor.ativo or not provedor %}checked{% endif %}>
+                        <label class="form-check-label text-white" for="switchAtivo">Ativo</label>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <label class="small text-white-50">Razão Social</label>
+                    <input type="text" name="razao_social" class="form-control bg-dark text-white border-secondary" value="{{ provedor.razao_social|default:'' }}">
+                </div>
+                <div class="col-md-6">
+                    <label class="small text-white-50">CNPJ</label>
+                    <input type="text" name="cnpj" class="form-control bg-dark text-white border-secondary" value="{{ provedor.cnpj|default:'' }}">
+                </div>
+            </div>
+        </div>
+
+        <!-- Meios, Atuação e Parceiros -->
+        <div class="row g-3">
+            <div class="col-md-4">
+                <div class="card-custom p-3 border rounded h-100" style="background-color: rgba(255,255,255,0.05);">
+                    <div class="header-section mb-2 fw-bold text-white"><i class="bi bi-broadcast"></i> Meios Físicos</div>
+                    <div class="form-check text-white small"><input class="form-check-input" type="checkbox" name="fibra" id="fibra" {% if provedor.fibra %}checked{% endif %}><label class="form-check-label" for="fibra">Fibra</label></div>
+                    <div class="form-check text-white small"><input class="form-check-input" type="checkbox" name="radio" id="radio" {% if provedor.radio %}checked{% endif %}><label class="form-check-label" for="radio">Rádio</label></div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card-custom p-3 border rounded h-100" style="background-color: rgba(255,255,255,0.05);">
+                    <div class="header-section mb-2 fw-bold text-white"><i class="bi bi-list-check"></i> Atuação/Serviços</div>
+                    <div class="form-check text-white small"><input class="form-check-input" type="checkbox" name="link_dedicado" {% if provedor.link_dedicado %}checked{% endif %}><label>Link Dedicado</label></div>
+                    <div class="form-check text-white small"><input class="form-check-input" type="checkbox" name="link_banda_larga" {% if provedor.link_banda_larga %}checked{% endif %}><label>Link Banda Larga</label></div>
+                    <div class="form-check text-white small"><input class="form-check-input" type="checkbox" name="zona_rural" {% if provedor.zona_rural %}checked{% endif %}><label>Zona Rural</label></div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card-custom p-3 border rounded h-100" style="background-color: rgba(255,255,255,0.05);">
+                    <div class="header-section mb-2 fw-bold text-white"><i class="bi bi-diagram-3"></i> Parceiros Trunk</div>
+                    <div class="form-check text-white small"><input class="form-check-input" type="checkbox" name="parceiro_bst" id="parceiro_bst" {% if provedor.parceiro_bst %}checked{% endif %}><label class="form-check-label" for="parceiro_bst">BST</label></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabelas -->
+        <div class="row mt-4">
+            <!-- Cidades -->
+            <div class="col-md-6">
+                <div class="card-custom p-3 border rounded shadow-sm h-100" style="background-color: rgba(255,255,255,0.05);">
+                    <div class="d-flex justify-content-between mb-2 text-white fw-bold">Cidades <i class="bi bi-geo-alt"></i>
+                        <div class="d-flex gap-2">
+                             <!-- Mantenha aqui seus botões de importar/adicionar -->
+                             {% if provedor.id %}
+                             <button type="button" class="btn btn-sm btn-primary py-0 px-2" onclick="new bootstrap.Modal(document.getElementById('modalCidade')).show()"><i class="bi bi-plus-lg"></i></button>
+                             {% endif %}
+                        </div>
+                    </div>
+                    <table class="table table-sm table-dark table-hover">
+                        <!-- ... estrutura da tabela de cidades ... -->
+                    </table>
+                </div>
+            </div>
+            <!-- Contatos -->
+            <div class="col-md-6">
+                <!-- ... estrutura da tabela de contatos ... -->
+            </div>
+        </div>
+
+        <div class="mt-4 mb-5">
+            <button type="submit" class="btn btn-primary px-4 shadow">Salvar Provedor</button>
+            <a href="{% url 'lista_provedores' %}" class="btn btn-outline-secondary px-4 ms-2">Cancelar</a>
+        </div>
+    </form>
+</div>
+
+<!-- Mantenha aqui todos os seus MODAIS definidos no final -->
+{% endblock %}

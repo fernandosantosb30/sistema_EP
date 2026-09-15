@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row text-center mb-5">
+    <div class="col-12">
+        <h1 class="display-4 fw-bold" style="color: var(--ep-lime);">Painel de Controle</h1>
+        <p class="text-muted">Sistema EP | Gestão de Provedores e Cidades</p>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-md-4">
+        <a href="{% url 'lista_provedores' %}" class="card-menu bg-cadastro shadow text-decoration-none">
+            <i class="bi bi-broadcast icon-large"></i>
+            <h3>Provedores</h3>
+            <p>Cadastrar novos fornecedores no sistema</p>
+        </a>
+    </div>
+
+    <div class="col-md-4">
+        <a href="{% url 'consulta_provedores' %}" class="card-menu bg-consulta shadow text-decoration-none">
+            <i class="bi bi-search icon-large"></i>
+            <h3>Consultar Cidades</h3>
+            <p>Mapeamento de cidades/Área de cobertura</p>
+        </a>
+    </div>
+
+    <div class="col-md-4">
+        <a href="{% url 'processar_custo_medio' %}" class="card-menu bg-custo shadow text-decoration-none">
+            <i class="bi bi-graph-up icon-large"></i>
+            <h3>Custo Médio</h3>
+            <p>Análise de custos e processamento de planilhas</p>
+        </a>
+    </div>
+
+    <div class="col-md-4">
+        <a href="{% url 'lista_prestadores_servico' %}" class="card-menu shadow text-decoration-none">
+            <i class="bi bi-tools icon-large"></i>
+            <h3>Prest/Serviço</h3>
+            <p>Cadastro e consulta de prestadores de serviço</p>
+        </a>
+    </div>
+</div>
+{% endblock %}

@@ -43,3 +43,24 @@ staticfiles/
 !.env.example
 provedores_contatos.csv
 export_csv/
+
+# Credenciais, anexos e exportações privadas
+*.db
+*.sqlite
+*.sqlite3-*
+*.bak
+*.backup
+*.p12
+*.pfx
+*.jks
+*credentials*.json
+*service_account*.json
+*.csv
+*.xls
+*.xlsx
+*.ods
+*.tsv
+!examples/*.csv
+backups/
+media/
+uploads/

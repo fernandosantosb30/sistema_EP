@@ -8,7 +8,7 @@ engine = create_engine(DATABASE_URL)
 def importar_cidades():
     try:
         # 1. Carrega o CSV e limpa espaços extras
-        df_cide = pd.read_csv(r'D:\Cidades.csv', encoding='latin1', sep=';', on_bad_lines='skip')
+        df_cide = pd.read_csv(os.environ['CIDADES_CSV_PATH'], encoding='latin1', sep=';', on_bad_lines='skip')
         df_cide['PROVEDOR'] = df_cide['PROVEDOR'].astype(str).str.strip()
         df_cide['CIDADE'] = df_cide['CIDADE'].astype(str).str.strip()
         df_cide['UF'] = df_cide['UF'].astype(str).str.strip()
@@ -58,7 +58,7 @@ def importar_cidades():
             conn.close()
 
     except Exception as e:
-        print(f"Erro ao processar cidades: {e}")
+        print("Falha na importação. Verifique a configuração e o arquivo de entrada.")
 
 if __name__ == "__main__":
     importar_cidades()

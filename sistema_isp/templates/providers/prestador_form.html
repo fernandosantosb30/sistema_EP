@@ -28,14 +28,17 @@
             <div class="col-lg-6">
                 <div class="card-custom h-100">
                     <div class="header-section"><i class="bi bi-geo-alt"></i> Região de atuação</div>
-                    <p class="text-white-50 small">Informe as cidades atendidas pelo prestador.</p>
+                    <p class="text-white-50 small">Informe as cidades atendidas pelo prestador. As exclusões serão aplicadas ao salvar o prestador.</p>
                     <div id="cidades-formset">
                         {% for cidade_form in formset %}
                         <div class="row g-2 align-items-end mb-2 cidade-form">
                             {{ cidade_form.id }}
-                            <div class="col-7"><label>Cidade</label>{{ cidade_form.nome }}{{ cidade_form.nome.errors }}</div>
+                            <div class="col-6"><label>Cidade</label>{{ cidade_form.nome }}{{ cidade_form.nome.errors }}</div>
                             <div class="col-3"><label>UF</label>{{ cidade_form.uf }}{{ cidade_form.uf.errors }}</div>
-                            <div class="col-2">{% if cidade_form.instance.pk %}<div class="form-check">{{ cidade_form.DELETE }} <label class="form-check-label" for="{{ cidade_form.DELETE.id_for_label }}">Excluir</label></div>{% endif %}</div>
+                            <div class="col-3">
+                                <span hidden>{{ cidade_form.DELETE }}</span>
+                                <button type="button" class="btn btn-outline-danger btn-sm excluir-cidade" aria-label="Excluir cidade"><i class="bi bi-trash"></i> Excluir</button>
+                            </div>
                         </div>
                         {% endfor %}
                     </div>
@@ -77,9 +80,12 @@
 
 <template id="cidade-form-vazio">
     <div class="row g-2 align-items-end mb-2 cidade-form">
-        <div class="col-7"><label>Cidade</label>{{ formset.empty_form.nome }}</div>
+        <div class="col-6"><label>Cidade</label>{{ formset.empty_form.nome }}</div>
         <div class="col-3"><label>UF</label>{{ formset.empty_form.uf }}</div>
-        <div class="col-2"></div>
+        <div class="col-3">
+            <span hidden>{{ formset.empty_form.DELETE }}</span>
+            <button type="button" class="btn btn-outline-danger btn-sm excluir-cidade" aria-label="Excluir cidade"><i class="bi bi-trash"></i> Excluir</button>
+        </div>
     </div>
 </template>
 {% endblock %}
@@ -87,6 +93,25 @@
 {% block extra_scripts %}
 {{ block.super }}
 <script>
+function ocultarCidadeExcluida(linha) {
+    linha.classList.add('d-none');
+    linha.querySelectorAll('input[name$="-nome"], select[name$="-uf"], input[name$="-uf"]').forEach(function (campo) {
+        campo.disabled = true;
+    });
+}
+
+document.querySelectorAll('#cidades-formset input[name$="-DELETE"]:checked').forEach(function (campo) {
+    ocultarCidadeExcluida(campo.closest('.cidade-form'));
+});
+
+document.getElementById('cidades-formset').addEventListener('click', function (event) {
+    const botao = event.target.closest('.excluir-cidade');
+    if (!botao) return;
+    const linha = botao.closest('.cidade-form');
+    linha.querySelector('input[name$="-DELETE"]').checked = true;
+    ocultarCidadeExcluida(linha);
+});
+
 document.getElementById('adicionar-cidade').addEventListener('click', function () {
     const totalForms = document.getElementById('id_cidades_atendidas-TOTAL_FORMS');
     const novoFormulario = document.getElementById('cidade-form-vazio').innerHTML.replace(/__prefix__/g, totalForms.value);

@@ -213,3 +213,32 @@ class CorrecoesRegressaoTests(TestCase):
         self.assertTrue(response.context['form'].errors)
         self.assertEqual(response.context['form']['nome'].value(), 'Nova')
         self.assertFalse(self.provedor.cidades.filter(nome='NOVA').exists())
+
+
+class ConfiguracaoPrivacidadeTests(TestCase):
+    def test_apresentacao_configurada_sem_expor_credenciais(self):
+        from django.test import override_settings
+        with override_settings(SITE_NAME='Empresa Fictícia <teste>', PARTNER_LABEL='Rede Fictícia', GOOGLE_SHEETS_ID='identificador-privado-ficticio'):
+            response = self.client.get('/login/')
+        self.assertContains(response, 'Empresa Fictícia &lt;teste&gt;')
+        self.assertNotContains(response, 'identificador-privado-ficticio')
+
+    def test_integracao_sem_configuracao_nao_conecta(self):
+        from django.test import override_settings
+        from unittest.mock import patch
+        from .services.importador import sincronizar_dados_google_sheets
+        with override_settings(GOOGLE_SHEETS_ID='', GOOGLE_APPLICATION_CREDENTIALS=''), patch('providers.services.importador.gspread.authorize') as authorize:
+            ok, message = sincronizar_dados_google_sheets()
+        self.assertFalse(ok)
+        self.assertIn('não configurada', message)
+        authorize.assert_not_called()
+
+    def test_dominio_da_hospedagem_sem_valor_fixo(self):
+        import subprocess
+        import sys
+        import os
+        import json
+        env = os.environ.copy()
+        env.update(DJANGO_SETTINGS_MODULE='core.settings_local', DJANGO_ALLOWED_HOSTS='custom.example.invalid', RENDER_EXTERNAL_HOSTNAME='service.example.invalid')
+        result = subprocess.run([sys.executable, '-c', 'import json; from core.settings import ALLOWED_HOSTS; print(json.dumps(ALLOWED_HOSTS))'], env=env, text=True, capture_output=True, check=True)
+        self.assertEqual(json.loads(result.stdout), ['custom.example.invalid', 'service.example.invalid'])

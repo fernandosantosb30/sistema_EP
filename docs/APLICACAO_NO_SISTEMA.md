@@ -1,6 +1,6 @@
 # Correções aplicadas ao sistema principal
 
-As alterações estão no projeto principal, não somente em `public-review/`. A identidade visual/textual do cliente e o campo `parceiro_bst` foram mantidos. Não houve conexão ao banco do cliente, publicação ou deploy.
+As alterações estão no projeto principal, não somente em `public-review/`. A apresentação é configurada por variáveis de ambiente; os nomes de campos legados foram mantidos para compatibilidade com o banco. Não houve conexão ao banco do cliente, publicação ou deploy.
 
 ## Alterações
 
@@ -21,7 +21,7 @@ A operação não exclui tabelas no rollback. Não use `migrate providers 0001` 
 
 1. Faça e verifique o backup privado do banco antes do deploy.
 2. Configure na hospedagem `DATABASE_URL` e uma chave própria em `DJANGO_SECRET_KEY` ou `SECRET_KEY` (nome anterior ainda aceito). Não há chave fixa de produção no código.
-3. Confira o domínio em `DJANGO_ALLOWED_HOSTS`. O domínio anteriormente usado continua como padrão no projeto privado.
+3. Confira o domínio em `DJANGO_ALLOWED_HOSTS`. Na Render, o domínio do serviço é obtido de RENDER_EXTERNAL_HOSTNAME; domínios personalizados precisam estar nessa variável de configuração.
 4. Para HTTPS atrás de proxy confiável que sobrescreva `X-Forwarded-Proto`, configure `DJANGO_TRUST_PROXY=true`. Não ative para proxies não confiáveis. Confira redirecionamentos antes de liberar o sistema.
 5. Execute `python manage.py migrate --plan` e a migração em uma restauração privada. O banco real pode ter diferenças em relação ao esquema de referência.
 6. O comando de build existente agora também executa `collectstatic --noinput`; mantém `migrate --noinput`. Se o build da sua hospedagem foi personalizado fora do arquivo `render.yaml`, atualize o comando lá também.
@@ -41,3 +41,9 @@ python local.py serve
 ```
 
 Esses comandos usam dados fictícios em banco local separado, não os dados do cliente. Não publique a pasta principal inteira: ela contém documentação e identidade privadas. A edição destinada à revisão pública continua separada.
+
+## Apresentação e integrações sem dados fixos no código
+
+Configure `SITE_NAME` e `PARTNER_LABEL` na hospedagem para manter os nomes exibidos ao cliente. Sem essas variáveis, a interface usa nomes genéricos. Na integração opcional de planilhas, configure `GOOGLE_SHEETS_ID` e `GOOGLE_APPLICATION_CREDENTIALS` (caminho do arquivo privado). A integração permanece um componente legado e não faz parte dos fluxos de tela validados.
+
+Nenhuma dessas configurações deve ser preenchida em um arquivo versionado. A sanitização dos arquivos atuais não remove versões antigas de branches, PRs e histórico Git.

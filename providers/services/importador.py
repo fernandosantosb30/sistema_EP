@@ -1,3 +1,4 @@
+from django.conf import settings
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from providers.models import Provedor
@@ -6,14 +7,14 @@ def sincronizar_dados_google_sheets():
     # Definição de escopo para a API
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
     
-    # IMPORTANTE: O arquivo credentials.json deve estar na raiz do projeto
+    if not settings.GOOGLE_SHEETS_ID or not settings.GOOGLE_APPLICATION_CREDENTIALS:
+        return False, 'Integração não configurada no ambiente.'
     try:
-        creds = ServiceAccountCredentials.from_json_keyfile_name('credentials.json', scope)
+        creds = ServiceAccountCredentials.from_json_keyfile_name(settings.GOOGLE_APPLICATION_CREDENTIALS, scope)
         client = gspread.authorize(creds)
 
         # Abre a planilha pelo seu ID exclusivo
-        planilha = client.open_by_key('111075979586424983903')
-        # Aqui você pode usar .sheet1 ou o nome exato: .worksheet("Contratações EP CONEXÕES")
+        planilha = client.open_by_key(settings.GOOGLE_SHEETS_ID)
         aba = planilha.get_worksheet(0) 
         
         dados = aba.get_all_records()
@@ -32,5 +33,5 @@ def sincronizar_dados_google_sheets():
                 }
             )
         return True, len(dados)
-    except Exception as e:
-        return False, str(e)
+    except Exception:
+        return False, 'Não foi possível sincronizar a planilha. Verifique a configuração privada e as permissões.'

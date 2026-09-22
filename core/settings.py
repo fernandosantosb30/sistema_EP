@@ -30,7 +30,7 @@ render_hostname = os.environ.get('RENDER_EXTERNAL_HOSTNAME', '').strip()
 if render_hostname and render_hostname not in ALLOWED_HOSTS:
     ALLOWED_HOSTS.append(render_hostname)
 SITE_NAME = os.environ.get('SITE_NAME', 'Gestão de Provedores e Cobertura')
-PARTNER_LABEL = os.environ.get('PARTNER_LABEL', 'Parceiro')
+PARTNER_LABEL = 'BST'
 GOOGLE_SHEETS_ID = os.environ.get('GOOGLE_SHEETS_ID', '')
 GOOGLE_APPLICATION_CREDENTIALS = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS', '')
 

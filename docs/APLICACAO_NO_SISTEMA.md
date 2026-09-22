@@ -44,6 +44,6 @@ Esses comandos usam dados fictícios em banco local separado, não os dados do c
 
 ## Apresentação e integrações sem dados fixos no código
 
-Configure `SITE_NAME` e `PARTNER_LABEL` na hospedagem para manter os nomes exibidos ao cliente. Sem essas variáveis, a interface usa nomes genéricos. Na integração opcional de planilhas, configure `GOOGLE_SHEETS_ID` e `GOOGLE_APPLICATION_CREDENTIALS` (caminho do arquivo privado). A integração permanece um componente legado e não faz parte dos fluxos de tela validados.
+Configure `SITE_NAME` para o nome geral da interface. A tela de login exibe “EP Conexões - Login” e os rótulos de parceria exibem “BST”, conforme definido para o sistema. Na integração opcional de planilhas, configure `GOOGLE_SHEETS_ID` e `GOOGLE_APPLICATION_CREDENTIALS` (caminho do arquivo privado). A integração permanece um componente legado e não faz parte dos fluxos de tela validados.
 
 Nenhuma dessas configurações deve ser preenchida em um arquivo versionado. A sanitização dos arquivos atuais não remove versões antigas de branches, PRs e histórico Git.

@@ -380,7 +380,7 @@ def excluir_todas_cidades(request, provedor_id):
 def importar_mapeamento(request):
     try:
         df = ler_csv_validado(request.FILES.get('arquivo_cidades'), ['cidade', 'uf'])
-        linhas = [['Cidade', 'UF', 'Parceiro', 'Contato', 'Trunk']]
+        linhas = [['Cidade', 'UF', 'BST', 'Contato', 'Trunk']]
         vistos = set()
         for _, row in df.iterrows():
             cidades = CidadeAtendida.objects.filter(nome=normalizar_texto(row['cidade']), uf__iexact=validar_uf(row['uf'])).select_related('provedor').prefetch_related('provedor__contatos')
@@ -405,7 +405,7 @@ def importar_mapeamento(request):
 @login_required
 def exportar_mapeamento_csv(request):
     provedores, cidades = filtrar_cobertura(request.GET)
-    linhas = [['Cidade', 'UF', 'Parceiro', 'Contato', 'Trunk']]
+    linhas = [['Cidade', 'UF', 'BST', 'Contato', 'Trunk']]
     for cidade in cidades.filter(provedor__in=provedores).select_related('provedor').prefetch_related('provedor__contatos'):
         p = cidade.provedor
         telefones = ', '.join(c.telefone for c in p.contatos.all() if c.telefone)

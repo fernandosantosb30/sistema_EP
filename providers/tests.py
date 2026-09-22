@@ -220,7 +220,8 @@ class ConfiguracaoPrivacidadeTests(TestCase):
         from django.test import override_settings
         with override_settings(SITE_NAME='Empresa Fictícia <teste>', PARTNER_LABEL='Rede Fictícia', GOOGLE_SHEETS_ID='identificador-privado-ficticio'):
             response = self.client.get('/login/')
-        self.assertContains(response, 'Empresa Fictícia &lt;teste&gt;')
+        self.assertContains(response, 'EP Conexões - Login')
+        self.assertNotContains(response, 'Empresa Fictícia <teste>')
         self.assertNotContains(response, 'identificador-privado-ficticio')
 
     def test_integracao_sem_configuracao_nao_conecta(self):

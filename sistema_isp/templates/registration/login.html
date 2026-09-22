@@ -1,10 +1,12 @@
 {% extends 'base.html' %}
 
+{% block title %}EP Conexões - Login{% endblock %}
+
 {% block content %}
 <div class="container d-flex justify-content-center align-items-center" style="min-height: 80vh;">
     <div class="card shadow" style="width: 100%; max-width: 400px;">
         <div class="card-body">
-            <h3 class="card-title text-center mb-4">{{ public_brand.name }} - Login</h3>
+            <h3 class="card-title text-center mb-4">EP Conexões - Login</h3>
             <form method="post">
                 {% csrf_token %}
                 {% if form.errors %}<div class="alert alert-danger" role="alert">Usuário ou senha inválidos. Tente novamente.</div>{% endif %}

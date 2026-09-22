@@ -8,6 +8,7 @@ from .models import (
 class ProvedorForm(forms.ModelForm):
     class Meta:
         model = Provedor
+        labels = {'parceiro_bst': 'BST'}
         fields = [
             'nome', 'ativo', 'razao_social', 'cnpj', 
             'parceiro_bst', 'fibra', 'radio', 

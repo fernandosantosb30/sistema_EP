@@ -97,6 +97,10 @@
                     </div>
                 </div>
                 
+                {% with total_cidades=provedor.cidades.count|default:0 %}
+                <p class="small text-white mb-2">{{ total_cidades }} cidade{{ total_cidades|pluralize:"s" }}</p>
+                {% endwith %}
+
                 <table class="table table-sm table-dark table-hover mb-0">
                     <thead><tr class="small text-lime"><th>CIDADE</th><th>UF</th><th class="text-center">AÇÃO</th></tr></thead>
                     <tbody>

@@ -17,6 +17,7 @@ urlpatterns = [
     
     # 3. HOME (Para onde o usuário vai DEPOIS de logar)
     path('home/', providers_views.home_view, name='home'),
+    path('relatorios/', providers_views.relatorios_view, name='relatorios'),
     
     # Home e Cadastro
     path('cadastro/', providers_views.lista_provedores, name='cadastro'),   

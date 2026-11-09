@@ -24,7 +24,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth.views import LoginView
 from django.core.paginator import Paginator
 from django.db import transaction, connection 
-from django.db.models import Q
+from django.db.models import Q, Count
 from django.db.models.functions import Lower, Trim
 from django.forms import inlineformset_factory, modelform_factory
 from django.http import HttpResponse, JsonResponse
@@ -141,6 +141,88 @@ def excluir_usuario(request, user_id):
 @login_required
 def home_view(request):
     return render(request, 'providers/home.html')
+
+
+@login_required
+def relatorios_view(request):
+    """Exibe relatórios calculados diretamente a partir dos dados cadastrados."""
+    tipo = request.GET.get('tipo', 'geral').strip()
+    provedor_id = request.GET.get('provedor', '').strip()
+    cidade = request.GET.get('cidade', '').strip()
+    uf = request.GET.get('uf', '').strip().upper()
+
+    provedores = Provedor.objects.all()
+    cidades_provedores = CidadeAtendida.objects.select_related('provedor')
+    prestadores_cidades = CidadeAtendidaPrestador.objects.select_related('prestador')
+
+    if provedor_id:
+        provedores = provedores.filter(pk=provedor_id)
+        cidades_provedores = cidades_provedores.filter(provedor_id=provedor_id)
+        prestadores_cidades = prestadores_cidades.none()
+    if cidade:
+        cidades_provedores = cidades_provedores.filter(nome__icontains=cidade)
+        prestadores_cidades = prestadores_cidades.filter(nome__icontains=cidade)
+    if uf:
+        cidades_provedores = cidades_provedores.filter(uf__iexact=uf)
+        prestadores_cidades = prestadores_cidades.filter(uf__iexact=uf)
+    if cidade or uf:
+        provedores = provedores.filter(cidades__in=cidades_provedores).distinct()
+
+    prestadores = PrestadorServico.objects.all()
+    if cidade or uf:
+        prestadores = prestadores.filter(cidades_atendidas__in=prestadores_cidades).distinct()
+    if provedor_id:
+        prestadores = prestadores.none()
+
+    # Agregações por cidade e UF; distinct evita contar mais de uma vez o mesmo
+    # provedor/prestador quando há registros repetidos em outras relações.
+    cidades_provedor_resumo = list(cidades_provedores.values('nome', 'uf').annotate(
+        quantidade_provedores=Count('provedor_id', distinct=True),
+    ).order_by('uf', 'nome'))
+    cidades_prestador_resumo = list(prestadores_cidades.values('nome', 'uf').annotate(
+        quantidade_prestadores=Count('prestador_id', distinct=True),
+    ).order_by('uf', 'nome'))
+    unicas = {(normalizar_texto(item['nome']), item['uf'].strip().upper())
+              for item in cidades_provedor_resumo + cidades_prestador_resumo}
+
+    contexto = {
+        'tipo': tipo,
+        'provedor_selecionado': provedor_id,
+        'cidade_filtro': cidade,
+        'uf_filtro': uf,
+        'provedores_opcoes': Provedor.objects.order_by('nome'),
+        'total_provedores': provedores.count(),
+        'total_prestadores': prestadores.count(),
+        'total_cidades_provedor': cidades_provedores.count(),
+        'total_cidades_prestador': prestadores_cidades.count(),
+        'total_cidades_unicas': len(unicas),
+        'cidades_provedor_resumo': cidades_provedor_resumo,
+        'cidades_prestador_resumo': cidades_prestador_resumo,
+        'distribuicao_provedores': cidades_provedores.values('nome', 'uf').annotate(
+            quantidade=Count('provedor_id', distinct=True),
+        ).order_by('-quantidade', 'uf', 'nome'),
+        'distribuicao_uf': cidades_provedores.values('uf').annotate(
+            quantidade=Count('provedor_id', distinct=True),
+        ).order_by('-quantidade', 'uf'),
+        'tipos_servico': [
+            {'rotulo': 'Link dedicado', 'quantidade': provedores.filter(link_dedicado=True).count()},
+            {'rotulo': 'Banda larga', 'quantidade': provedores.filter(link_banda_larga=True).count()},
+            {'rotulo': 'Zona rural', 'quantidade': provedores.filter(zona_rural=True).count()},
+        ],
+        'meios_fisicos': [
+            {'rotulo': 'Fibra', 'quantidade': provedores.filter(fibra=True).count()},
+            {'rotulo': 'Rádio', 'quantidade': provedores.filter(radio=True).count()},
+        ],
+    }
+    if tipo == 'provedores':
+        contexto['cidades_prestador_resumo'] = []
+    elif tipo == 'prestadores':
+        contexto['cidades_provedor_resumo'] = []
+        contexto['distribuicao_provedores'] = []
+        contexto['distribuicao_uf'] = []
+        contexto['tipos_servico'] = []
+        contexto['meios_fisicos'] = []
+    return render(request, 'providers/relatorios.html', contexto)
 
 @login_required
 def lista_provedores(request):

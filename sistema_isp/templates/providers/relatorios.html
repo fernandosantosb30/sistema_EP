@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+
+{% block title %}Relatórios | {{ public_brand.name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+    <div>
+        <h1 class="fw-bold text-lime">Relatórios</h1>
+        <p class="text-muted mb-0">Indicadores calculados com os dados cadastrados no sistema.</p>
+    </div>
+    <a href="{% url 'home' %}" class="btn btn-outline-light"><i class="bi bi-house"></i> Voltar à Home</a>
+</div>
+
+<div class="card-custom mb-4">
+    <form method="get" class="row g-3 align-items-end">
+        <div class="col-md-3">
+            <label for="tipo" class="form-label">Relatório</label>
+            <select class="form-select" id="tipo" name="tipo">
+                <option value="geral" {% if tipo == 'geral' %}selected{% endif %}>Visão geral</option>
+                <option value="provedores" {% if tipo == 'provedores' %}selected{% endif %}>Provedores e cobertura</option>
+                <option value="prestadores" {% if tipo == 'prestadores' %}selected{% endif %}>Prestadores e cidades</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label for="provedor" class="form-label">Provedor</label>
+            <select class="form-select" id="provedor" name="provedor">
+                <option value="">Todos</option>
+                {% for item in provedores_opcoes %}<option value="{{ item.pk }}" {% if provedor_selecionado == item.pk|stringformat:'s' %}selected{% endif %}>{{ item.nome }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label for="cidade" class="form-label">Cidade</label>
+            <input class="form-control" id="cidade" name="cidade" value="{{ cidade_filtro }}" placeholder="Todas as cidades">
+        </div>
+        <div class="col-md-1">
+            <label for="uf" class="form-label">UF</label>
+            <input class="form-control text-uppercase" id="uf" name="uf" value="{{ uf_filtro }}" maxlength="2" placeholder="UF">
+        </div>
+        <div class="col-md-2 d-flex gap-2">
+            <button class="btn btn-primary flex-grow-1" type="submit"><i class="bi bi-bar-chart"></i> Gerar</button>
+            <a href="{% url 'relatorios' %}" class="btn btn-outline-light" title="Limpar filtros"><i class="bi bi-x-lg"></i></a>
+        </div>
+    </form>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-6 col-lg-3"><div class="card-custom h-100"><div class="text-muted">Provedores</div><div class="display-6 text-lime">{{ total_provedores }}</div></div></div>
+    <div class="col-6 col-lg-3"><div class="card-custom h-100"><div class="text-muted">Prestadores de serviço</div><div class="display-6 text-lime">{{ total_prestadores }}</div></div></div>
+    <div class="col-6 col-lg-3"><div class="card-custom h-100"><div class="text-muted">Cidades de provedores / prestadores</div><div class="h3 text-lime mb-0">{{ total_cidades_provedor }} / {{ total_cidades_prestador }}</div></div></div>
+    <div class="col-6 col-lg-3"><div class="card-custom h-100"><div class="text-muted">Cidades únicas (nome + UF)</div><div class="display-6 text-lime">{{ total_cidades_unicas }}</div></div></div>
+</div>
+
+{% if tipo != 'prestadores' %}
+<section class="card-custom mb-4">
+    <h2 class="h4">Provedores por cidade</h2>
+    <div class="table-responsive"><table class="table table-hover align-middle mb-0">
+        <thead><tr><th>Cidade</th><th>UF</th><th>Provedores</th></tr></thead>
+        <tbody>{% for linha in distribuicao_provedores %}<tr><td>{{ linha.nome }}</td><td>{{ linha.uf }}</td><td>{{ linha.quantidade }}</td></tr>{% empty %}<tr><td colspan="3" class="text-center">Nenhum dado para os filtros selecionados.</td></tr>{% endfor %}</tbody>
+    </table></div>
+</section>
+
+<div class="row g-3 mb-4">
+    <div class="col-lg-4"><section class="card-custom h-100"><h2 class="h4">Provedores por UF</h2><div class="table-responsive"><table class="table table-hover mb-0"><thead><tr><th>UF</th><th>Provedores</th></tr></thead><tbody>{% for linha in distribuicao_uf %}<tr><td>{{ linha.uf }}</td><td>{{ linha.quantidade }}</td></tr>{% empty %}<tr><td colspan="2">Sem dados.</td></tr>{% endfor %}</tbody></table></div></section></div>
+    <div class="col-lg-4"><section class="card-custom h-100"><h2 class="h4">Tipos de serviço</h2><table class="table table-hover mb-0"><thead><tr><th>Tipo</th><th>Provedores</th></tr></thead><tbody>{% for linha in tipos_servico %}<tr><td>{{ linha.rotulo }}</td><td>{{ linha.quantidade }}</td></tr>{% endfor %}</tbody></table></section></div>
+    <div class="col-lg-4"><section class="card-custom h-100"><h2 class="h4">Meios físicos</h2><table class="table table-hover mb-0"><thead><tr><th>Meio</th><th>Provedores</th></tr></thead><tbody>{% for linha in meios_fisicos %}<tr><td>{{ linha.rotulo }}</td><td>{{ linha.quantidade }}</td></tr>{% endfor %}</tbody></table></section></div>
+</div>
+{% endif %}
+
+{% if tipo != 'provedores' %}
+<section class="card-custom mb-4">
+    <h2 class="h4">Cidades atendidas por prestadores</h2>
+    <div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th>Cidade</th><th>UF</th><th>Prestadores</th></tr></thead>
+    <tbody>{% for linha in cidades_prestador_resumo %}<tr><td>{{ linha.nome }}</td><td>{{ linha.uf }}</td><td>{{ linha.quantidade_prestadores }}</td></tr>{% empty %}<tr><td colspan="3" class="text-center">Nenhum dado para os filtros selecionados.</td></tr>{% endfor %}</tbody></table></div>
+</section>
+{% endif %}
+{% endblock %}
